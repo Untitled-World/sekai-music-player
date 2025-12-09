@@ -1,5 +1,5 @@
 /* ========================================
-   SEKAI Music Player - Premium Styles
+   SEKAI Music Player - プレミアムスタイル
    ======================================== */
 
 :root {
@@ -600,12 +600,7 @@ body {
 }
 
 .track-jacket .no-jacket {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
+    display: none;
 }
 
 .track-details {
@@ -954,11 +949,13 @@ body {
 
 @media (max-width: 768px) {
     :root {
-        --player-height: 140px;
+        --player-height: 110px;
     }
 
     .main-container {
         padding: var(--spacing-md);
+        padding-bottom: 150px;
+        /* Ensure content doesn't get hidden behind taller player */
     }
 
     .search-section {
@@ -976,22 +973,103 @@ body {
         gap: var(--spacing-md);
     }
 
+    /* Player Bar Layout - Flexbox with Flattened Children */
     .now-playing-content {
-        grid-template-columns: 1fr;
-        gap: var(--spacing-sm);
-        padding: var(--spacing-sm) var(--spacing-md);
+        position: relative;
+        /* Ensure absolute children position relative to this */
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 16px 16px;
+        /* Vertically balanced padding */
+        gap: 8px;
+        /* Base gap */
     }
 
-    .track-info {
-        display: none;
-    }
-
+    /* Flatten component structure */
+    .track-info,
+    .player-controls,
     .extra-controls {
-        justify-content: center;
+        display: contents;
     }
 
-    .volume-control {
+    /* Control Buttons - Absolute Centering */
+    .control-buttons {
+        position: absolute;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        top: 40px;
+        /* 16px padding + 24px (half jacket height) */
+        z-index: 5;
+        width: auto;
+    }
+
+    /* 1. Track Jacket (Left) */
+    .now-playing-bar .track-jacket {
+        order: 1;
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        border: 2px solid var(--accent-primary);
+        overflow: hidden;
+        margin-right: 8px;
+        /* Reset absolute positioning */
+        position: static;
+        z-index: auto;
+    }
+
+    .now-playing-bar .track-jacket img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* 2. Lyrics Button (Next to Jacket) */
+    #lyricsBtn {
+        order: 2;
+        margin-right: auto;
+        /* Push other items to the right */
+    }
+
+    /* 3-5. Prev/Play/Next Buttons are handled by .control-buttons absolute positioning */
+    #prevBtn,
+    #playPauseBtn,
+    #nextBtn {
+        order: unset;
+        margin: 0;
+    }
+
+    /* 6. Repeat Button (Right Side) */
+    #repeatBtn {
+        order: 6;
+    }
+
+    /* 7. Shuffle Button (Right Edge) */
+    #shuffleBtn {
+        order: 7;
+    }
+
+    /* 8. Progress Bar (Bottom Row) */
+    .progress-container {
+        order: 10;
+        width: 100%;
+        margin-top: 4px;
+        padding: 0 4px;
+    }
+
+    /* Hide Unused Elements */
+    .track-details,
+    .volume-control,
+    .card-unit {
         display: none;
+    }
+
+    .now-playing-bar .track-info {
+        /* Remove the override from previous steps */
+        position: static;
+        width: auto;
+        height: auto;
     }
 }
 
@@ -1071,4 +1149,466 @@ body {
     justify-content: center;
     height: 100%;
     color: var(--text-muted);
+}
+
+/* ヘッダーアクション */
+.header-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.action-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.action-btn:hover {
+    background: var(--bg-glass);
+    color: var(--accent-primary);
+}
+
+.action-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Settings Modal */
+.setting-group {
+    background: var(--bg-glass);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.setting-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+    color: var(--text-primary);
+}
+
+.setting-desc {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-sm);
+}
+
+.setting-select {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+/* Playlists Modal */
+.playlist-create-section {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.playlist-create-inline {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+.input-text {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+}
+
+.input-text::placeholder {
+    color: var(--text-muted);
+}
+
+.btn-primary {
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    transition: var(--transition-fast);
+}
+
+.btn-primary:hover {
+    background: var(--accent-secondary);
+}
+
+.playlists-list,
+.playlists-selection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+.playlist-item {
+    background: var(--bg-glass);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.playlist-item:hover {
+    background: var(--bg-card);
+    border-color: var(--accent-primary);
+    transform: translateX(4px);
+}
+
+.playlist-info h3 {
+    margin: 0;
+    font-size: var(--font-size-md);
+}
+
+.playlist-info p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.playlist-actions-row {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.btn-small {
+    padding: 6px 10px;
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    border: none;
+    background: var(--bg-glass);
+    color: var(--text-primary);
+    transition: var(--transition-fast);
+}
+
+.btn-small:hover {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.btn-small-danger {
+    padding: 6px 10px;
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    transition: var(--transition-fast);
+}
+
+.btn-small-danger:hover {
+    background: #ff4d4d;
+    color: white;
+}
+
+.badge-added {
+    font-size: var(--font-size-xs);
+    color: var(--accent-primary);
+    margin-top: 4px;
+    display: block;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    padding: var(--spacing-md);
+}
+
+/* カードアクションボタン（常に表示） */
+.card-action-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    z-index: 10;
+}
+
+.card-action-btn:hover {
+    transform: scale(1.1);
+}
+
+.card-action-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.card-action-btn.add-btn {
+    background: rgba(108, 92, 231, 0.8);
+}
+
+.card-action-btn.add-btn:hover {
+    background: var(--accent-primary);
+}
+
+.card-action-btn.delete-btn {
+    background: rgba(255, 77, 77, 0.8);
+}
+
+.card-action-btn.delete-btn:hover {
+    background: #ff4d4d;
+}
+
+/* 後方互換性 - add-playlist-btnを動作させる */
+.add-playlist-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 1;
+    transition: var(--transition-fast);
+    z-index: 10;
+}
+
+.add-playlist-btn:hover {
+    background: var(--accent-primary);
+    transform: scale(1.1);
+}
+
+.add-playlist-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* 確認モーダル */
+.confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    transition: var(--transition-fast);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-glass);
+}
+
+.btn-danger {
+    background: #ff4d4d;
+    color: white;
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    transition: var(--transition-fast);
+}
+
+.btn-danger:hover {
+    background: #ff3333;
+}
+
+/* Context Bar for Playlist View */
+.context-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-card);
+    border: 1px solid var(--accent-primary);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+    box-shadow: 0 4px 12px rgba(108, 92, 231, 0.15);
+}
+
+.context-info h2 {
+    margin: 0;
+    font-size: var(--font-size-md);
+    color: var(--accent-primary);
+}
+
+.context-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    margin-top: 4px;
+    padding: 0;
+}
+
+.context-close:hover {
+    color: var(--accent-primary);
+    text-decoration: underline;
+}
+
+.context-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+/* Scroll to Top Button */
+.scroll-to-top {
+    position: fixed;
+    bottom: calc(var(--player-height) + 20px);
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: var(--transition-normal);
+    z-index: 150;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.scroll-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.scroll-to-top:hover {
+    background: var(--accent-secondary);
+    transform: scale(1.1);
+}
+
+.scroll-to-top svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    display: none;
+}
+
+.toggle-slider {
+    width: 48px;
+    height: 24px;
+    background: var(--text-muted);
+    border-radius: var(--radius-full);
+    position: relative;
+    transition: var(--transition-fast);
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: var(--transition-fast);
+}
+
+.toggle-switch input:checked+.toggle-slider {
+    background: var(--accent-primary);
+}
+
+.toggle-switch input:checked+.toggle-slider::before {
+    left: 26px;
+}
+
+.toggle-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+/* トラックタイトル クリック可能 */
+.track-title {
+    cursor: pointer;
+}
+
+.track-title:hover {
+    color: var(--accent-primary);
+}
+
+/* トラックアーティスト クリック可能（ボーカル切り替え用） */
+.track-artist {
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.track-artist:hover {
+    color: var(--accent-secondary);
+}
+
+/* プレイヤージャケット クリック可能（モバイル用代替） */
+.track-jacket {
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.track-jacket:hover {
+    opacity: 0.8;
+}
+
+.track-jacket:active {
+    transform: scale(0.95);
 }

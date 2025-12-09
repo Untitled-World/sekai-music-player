@@ -25,11 +25,11 @@
 </head>
 
 <body>
-    <!-- Background -->
+    <!-- 背景 -->
     <div class="background-overlay"></div>
     <div class="dynamic-background" id="dynamicBg"></div>
 
-    <!-- Header -->
+    <!-- ヘッダー -->
     <header class="header">
         <div class="header-content">
             <div class="logo">
@@ -37,6 +37,17 @@
                 <h1>SEKAI Music Player</h1>
             </div>
             <div class="header-actions">
+                <button class="action-btn" id="playlistMenuBtn" title="プレイリスト">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 9H2v2h17V9zm0-4H2v2h17V5zM2 15h13v-2H2v2zm15-2v6l5-3-5-3z" />
+                    </svg>
+                </button>
+                <button class="action-btn" id="settingsBtn" title="設定">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.58 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                    </svg>
+                </button>
                 <button class="theme-toggle" id="themeToggle" title="テーマ切替">
                     <span class="theme-icon">🌙</span>
                 </button>
@@ -44,9 +55,9 @@
         </div>
     </header>
 
-    <!-- Main Content -->
+    <!-- メインコンテンツ -->
     <main class="main-container">
-        <!-- Search & Filter Section -->
+        <!-- 検索＆フィルターセクション -->
         <section class="search-section glass-card">
             <div class="search-wrapper">
                 <div class="search-icon">🔍</div>
@@ -69,9 +80,22 @@
             </div>
         </section>
 
-        <!-- Music Grid -->
+        <!-- プレイリストコンテキストバー（プレイリスト表示時に表示） -->
+        <div class="context-bar" id="contextBar" style="display: none;">
+            <div class="context-info">
+                <h2 id="contextTitle">プレイリスト</h2>
+                <button class="context-close" id="contextCloseBtn">✕ 検索に戻る</button>
+            </div>
+            <div class="context-actions">
+                <button class="btn-small" id="contextCopyBtn" title="IDをコピー">📋 IDコピー</button>
+                <button class="btn-small" id="contextPlayBtn">▶ 全再生</button>
+                <button class="btn-small btn-small-danger" id="contextDeleteBtn">削除</button>
+            </div>
+        </div>
+
+        <!-- 楽曲グリッド -->
         <section class="music-grid" id="musicGrid">
-            <!-- Music cards will be dynamically inserted here -->
+            <!-- 楽曲カードがここに動的に挿入されます -->
             <div class="loading-placeholder">
                 <div class="loading-spinner"></div>
                 <p>楽曲データを読み込み中...</p>
@@ -79,10 +103,18 @@
         </section>
     </main>
 
-    <!-- Now Playing Bar (Fixed Bottom) -->
+    <!-- Scroll to Top Button -->
+    <button class="scroll-to-top" id="scrollToTopBtn" title="最上部に戻る">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" />
+        </svg>
+    </button>
+
+
+    <!-- 再生バー（下部固定） -->
     <div class="now-playing-bar" id="nowPlayingBar">
         <div class="now-playing-content">
-            <!-- Track Info -->
+            <!-- トラック情報 -->
             <div class="track-info">
                 <div class="track-jacket" id="playerJacket">
                     <img src="" alt="" id="playerJacketImg">
@@ -94,7 +126,7 @@
                 </div>
             </div>
 
-            <!-- Player Controls -->
+            <!-- プレイヤーコントロール -->
             <div class="player-controls">
                 <div class="control-buttons">
                     <button class="control-btn" id="prevBtn" title="前の曲">
@@ -128,7 +160,7 @@
                 </div>
             </div>
 
-            <!-- Additional Controls -->
+            <!-- 追加コントロール -->
             <div class="extra-controls">
                 <button class="control-btn" id="lyricsBtn" title="歌詞">
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -164,7 +196,7 @@
         </div>
     </div>
 
-    <!-- Vocal Selector Modal -->
+    <!-- ボーカル選択モーダル -->
     <div class="modal-overlay" id="vocalModal">
         <div class="modal-content glass-card">
             <div class="modal-header">
@@ -173,13 +205,13 @@
             </div>
             <div class="modal-body">
                 <div class="vocal-list" id="vocalList">
-                    <!-- Vocal options will be inserted here -->
+                    <!-- ボーカルオプションがここに挿入されます -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Lyrics Modal -->
+    <!-- 歌詞モーダル -->
     <div class="modal-overlay" id="lyricsModal">
         <div class="modal-content glass-card lyrics-content">
             <div class="modal-header">
@@ -194,11 +226,79 @@
         </div>
     </div>
 
+    <!-- 設定モーダル -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>設定</h2>
+                <button class="modal-close" id="settingsClose">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label class="setting-label">デフォルトボーカル優先設定</label>
+                    <p class="setting-desc">自動再生時に優先するボーカルバージョンを選択します。</p>
+                    <select id="vocalPrioritySelect" class="setting-select">
+                        <option value="sekai">セカイver.を優先（推奨）</option>
+                        <option value="default">デフォルト（リスト順）</option>
+                        <option value="virtual_singer">バーチャル・シンガーver.を優先</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">自動再生</label>
+                    <p class="setting-desc">曲終了時に次の曲を自動的に再生します。</p>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoplayToggle" checked>
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">ON</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <!-- Audio Element (Hidden) -->
+    <!-- プレイリストモーダル -->
+    <div class="modal-overlay" id="playlistsModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>プレイリスト</h2>
+                <button class="modal-close" id="playlistsClose">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="playlist-create-section">
+                    <input type="text" id="newPlaylistName" placeholder="新しいプレイリスト名" class="input-text">
+                    <input type="text" id="newPlaylistIds" placeholder="IDリスト (カンマ区切り・任意)" class="input-text"
+                        style="margin-top: 8px;">
+                    <button id="createPlaylistBtn" class="btn-primary"
+                        style="margin-top: 8px; width: 100%;">プレイリストを作成</button>
+                </div>
+                <div class="playlists-list" id="playlistsList">
+                    <p class="empty-state">プレイリストはまだありません</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 確認モーダル -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2 id="confirmTitle">確認</h2>
+                <button class="modal-close" id="confirmClose">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage" class="setting-desc">本当に実行しますか？</p>
+                <div class="confirm-actions">
+                    <button class="btn-secondary" id="confirmCancelBtn">キャンセル</button>
+                    <button class="btn-danger" id="confirmOkBtn">削除する</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- オーディオ要素（非表示） -->
     <audio id="audioPlayer" preload="metadata"></audio>
 
-    <script src="app.js" type="module"></script>
+    <script src="app.js"></script>
 </body>
 
 </html>
