@@ -1,0 +1,66 @@
+/* ========================================
+   SEKAI Music Player - ベーススタイル (Base Logic)
+   ======================================== */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-bottom: calc(var(--player-height) + var(--spacing-lg));
+}
+
+.background-overlay {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-primary), transparent 50%),
+        radial-gradient(ellipse 60% 40% at 100% 100%, #fd79a8, transparent 40%),
+        radial-gradient(ellipse 60% 40% at 0% 100%, #6c5ce7, transparent 40%);
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: -2;
+}
+
+.dynamic-background {
+    position: fixed;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: blur(80px) saturate(1.5);
+    opacity: 0;
+    transition: opacity 1s ease;
+    z-index: -1;
+    transform: scale(1.1);
+}
+
+.dynamic-background.active {
+    opacity: 0.3;
+}
+
+[data-theme="light"] .dynamic-background.active {
+    opacity: 0.15;
+}
+
+.glass-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 24px var(--shadow-color), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}

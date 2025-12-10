@@ -1,0 +1,378 @@
+/* ========================================
+   SEKAI Music Player - プレイヤーバー (Player Bar)
+   ======================================== */
+
+.now-playing-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--player-height);
+    background: rgba(26, 26, 46, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border-color);
+    z-index: 200;
+    transform: translateY(100%);
+    transition: transform var(--transition-normal);
+}
+
+[data-theme="light"] .now-playing-bar {
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.now-playing-bar.visible {
+    transform: translateY(0);
+}
+
+.now-playing-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    height: 100%;
+    display: grid;
+    /* 左右のカラム幅条件を統一し、中央カラムが画面中央に来るようにする */
+    grid-template-columns: minmax(200px, 1fr) 2fr minmax(200px, 1fr);
+    align-items: center;
+    padding: 0 var(--spacing-lg);
+    gap: var(--spacing-md);
+}
+
+.track-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    overflow: hidden;
+    position: static;
+    width: auto;
+    height: auto;
+}
+
+.track-jacket {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    background: var(--bg-glass);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.track-jacket img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.track-jacket:hover {
+    opacity: 0.8;
+}
+
+.track-jacket:active {
+    transform: scale(0.95);
+}
+
+.track-details {
+    overflow: hidden;
+}
+
+.track-title {
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.track-title:hover {
+    color: var(--accent-primary);
+}
+
+.track-artist {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.track-artist:hover {
+    color: var(--accent-secondary);
+}
+
+.player-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.control-buttons {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    position: relative;
+    /* favBtnの絶対配置の基準 */
+}
+
+/* PC表示時、お気に入りボタンをフローから外して左側に配置し、
+   再生ボタン群(Prev/Play/Next)が中央に来るようにする */
+#favBtn {
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-right: var(--spacing-sm);
+}
+
+.control-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+}
+
+.control-btn:hover {
+    background: var(--bg-glass);
+    color: var(--accent-primary);
+}
+
+.control-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.control-btn.play-btn {
+    width: 44px;
+    height: 44px;
+    background: var(--accent-primary);
+    color: white;
+}
+
+.control-btn.play-btn:hover {
+    background: var(--accent-secondary);
+    transform: scale(1.05);
+    color: white;
+}
+
+.control-btn.play-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+.control-btn.active {
+    color: var(--accent-primary);
+}
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    max-width: 600px;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--bg-glass);
+    border-radius: var(--radius-full);
+    position: relative;
+    cursor: pointer;
+}
+
+.progress-bar:hover {
+    height: 6px;
+}
+
+.progress-buffered {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-full);
+}
+
+.progress-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent-primary);
+    border-radius: var(--radius-full);
+}
+
+.progress-handle {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    background: var(--accent-primary);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: var(--transition-fast);
+}
+
+.progress-bar:hover .progress-handle {
+    opacity: 1;
+}
+
+.time-current,
+.time-duration {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    width: 40px;
+    text-align: center;
+}
+
+.extra-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.volume-slider {
+    width: 80px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--bg-glass);
+    border-radius: var(--radius-full);
+    outline: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--accent-primary);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+#favBtn.active {
+    color: #ff6b81;
+}
+
+#favBtn .fav-icon-filled {
+    color: #ff6b81;
+}
+
+/* モバイル用プレイヤーバー調整 (Mobile) */
+@media (max-width: 768px) {
+
+    /* Player Bar Layout - Flexbox with Flattened Children */
+    .now-playing-content {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 30px 16px;
+        gap: 8px;
+    }
+
+    .track-info,
+    .player-controls,
+    .extra-controls {
+        display: contents;
+    }
+
+    /* Control Buttons - Absolute Centering */
+    .control-buttons {
+        position: absolute;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        top: 54px;
+        z-index: 5;
+        width: auto;
+        pointer-events: none;
+    }
+
+    .control-buttons>* {
+        pointer-events: auto;
+    }
+
+    #favBtn {
+        position: absolute;
+        left: 100%;
+        margin-left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        right: auto;
+        /* PC用スタイルの打ち消し */
+        margin-right: 0;
+        /* PC用スタイルの打ち消し */
+    }
+
+    .now-playing-bar .track-jacket {
+        order: 1;
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        border: 2px solid var(--accent-primary);
+        overflow: hidden;
+        margin-right: 8px;
+        position: static;
+        z-index: auto;
+    }
+
+    #lyricsBtn {
+        order: 2;
+        margin-right: auto;
+    }
+
+    #prevBtn,
+    #playPauseBtn,
+    #nextBtn {
+        order: unset;
+        margin: 0;
+    }
+
+    #repeatBtn {
+        order: 6;
+    }
+
+    #shuffleBtn {
+        order: 7;
+    }
+
+    .progress-container {
+        order: 10;
+        width: 100%;
+        margin-top: 4px;
+        padding: 0 4px;
+    }
+
+    .track-details,
+    .volume-control,
+    .card-unit {
+        display: none;
+    }
+
+    .now-playing-bar .track-info {
+        position: static;
+        width: auto;
+        height: auto;
+    }
+}

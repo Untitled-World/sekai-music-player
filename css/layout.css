@@ -1,0 +1,44 @@
+/* ========================================
+   SEKAI Music Player - レイアウト (Layout)
+   ======================================== */
+
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(15, 15, 26, 0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .header {
+    background: rgba(245, 245, 250, 0.8);
+}
+
+.header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.main-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--spacing-lg);
+}
+
+/* レスポンシブ調整 */
+@media (max-width: 768px) {
+    :root {
+        --player-height: 140px;
+    }
+
+    .main-container {
+        padding: var(--spacing-md);
+        padding-bottom: 150px;
+        /* コンテンツがプレイヤーの後ろに隠れないようにする */
+    }
+}
