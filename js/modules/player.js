@@ -137,6 +137,9 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     // ユニット別ダイナミックテーマを適用
     applyUnitTheme(music.unit);
 
+    // 再生開始記録（クロスフェードを含むすべての再生で記録）
+    recordPlay(music.id);
+
     if (doCrossfade) {
         performCrossfade(previousPlayer, currentPlayer);
     } else {
@@ -144,9 +147,6 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             previousPlayer.pause();
             previousPlayer.currentTime = 0;
         }
-        // 再生開始記録
-        recordPlay(music.id);
-
         state.isPlaying = true;
         updatePlayPauseButton();
     }
