@@ -9,6 +9,7 @@ import { updateFavoriteBtnState } from './favorites.js';
 import { playMusic as playMusicFn } from './player.js'; // 自分自身を再帰呼び出しするために必要？ いや、関数名を変えれば... 
 // 修正: exportする関数名と内部関数名が同じなので、再帰呼び出しは自分自身を呼ぶ。
 import { openVocalModal } from './modals.js'; // Card listeners are in UI but playMusic calls UI
+import { recordPlay } from './stats.js';
 
 // Circular dependency: UI updates need to be imported
 import { updateNowPlayingUI, updatePlayingCard, updateDynamicBackground, updatePlayPauseButton, updateProgress, updateVolumeIcon } from './ui.js';
@@ -139,6 +140,9 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             previousPlayer.pause();
             previousPlayer.currentTime = 0;
         }
+        // 再生開始記録
+        recordPlay(music.id);
+
         state.isPlaying = true;
         updatePlayPauseButton();
     }

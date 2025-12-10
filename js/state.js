@@ -18,6 +18,10 @@ export const state = {
     isDragging: false,
     // プレイリスト＆設定の状態
     savedPlaylists: [],
+    stats: {
+        history: [], // 楽曲IDの配列 (最新が先頭)
+        playCounts: {} // { musicId: count }
+    },
     settings: {
         vocalPriority: 'sekai',
         autoplay: true,

@@ -18,8 +18,14 @@ export function toggleTheme() {
 }
 
 function updateThemeIcon(theme) {
-    const icon = elements.themeToggle.querySelector('.theme-icon');
+    const icon = elements.themeToggle?.querySelector('.theme-icon');
     if (icon) {
         icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+    }
+
+    // ラベルも更新
+    const label = document.getElementById('themeLabel');
+    if (label) {
+        label.textContent = theme === 'dark' ? 'ダークモード' : 'ライトモード';
     }
 }

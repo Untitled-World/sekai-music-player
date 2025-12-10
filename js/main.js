@@ -12,6 +12,7 @@ import { loadPlaylists, savePlaylists, createPlaylist, exportPlaylistIds, delete
 import { getActivePlayer, playMusic, playNext, playPrev, togglePlayPause, toggleRepeat, toggleShuffle, setVolume, toggleMute, seekTo, handleSeekStart, handleSeekMove, handleSeekEnd, updateBuffered, getPreferredVocal } from './modules/player.js';
 import { renderMusicGrid, filterMusic, switchToAllContext, updateStats, updateNowPlayingUI, updatePlayPauseButton, updateProgress } from './modules/ui.js';
 import { openLyricsModal, closeLyricsModal, openVocalModal, closeVocalModal, closeConfirmModal, executeConfirmCallback, showAlertModal, showConfirmModal } from './modules/modals.js';
+import { loadStats, openStatsModal, closeStatsModal, renderStatsContent } from './modules/stats.js';
 
 // 設定管理 (Settings Management) - ここに残すか、専用モジュールにするか。今回はMainに置く。
 function loadSettings() {
@@ -441,6 +442,26 @@ function initEventListeners() {
             }
         });
     }
+
+    // 統計モーダル
+    if (elements.statsBtn) {
+        elements.statsBtn.addEventListener('click', openStatsModal);
+    }
+    if (elements.statsClose) {
+        elements.statsClose.addEventListener('click', closeStatsModal);
+    }
+    if (elements.statsModal) {
+        elements.statsModal.addEventListener('click', (e) => {
+            if (e.target === elements.statsModal) closeStatsModal();
+        });
+    }
+
+    // タブ切り替え
+    document.querySelectorAll('.stats-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            renderStatsContent(tab.dataset.tab);
+        });
+    });
 }
 
 // キーボードショートカット (Shortcuts)
@@ -489,6 +510,7 @@ async function init() {
     loadSettings();
     loadFavorites();
     loadPlaylists();
+    loadStats(); // 統計読み込み
     initEventListeners();
     initShortcuts();
     setVolume(80);

@@ -78,5 +78,10 @@ export const elements = {
     get crossfadeValue() { return document.getElementById('crossfadeValue'); },
     get crossfadeSliderContainer() { return document.getElementById('crossfadeSliderContainer'); },
     get settingVolumeSlider() { return document.getElementById('settingVolumeSlider'); },
-    get favBtn() { return document.getElementById('favBtn'); }
+    get favBtn() { return document.getElementById('favBtn'); },
+
+    // 統計・履歴
+    get statsBtn() { return document.getElementById('statsBtn'); },
+    get statsModal() { return document.getElementById('statsModal'); },
+    get statsClose() { return document.getElementById('statsClose'); }
 };
