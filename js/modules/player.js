@@ -60,11 +60,17 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     const previousPlayer = getActivePlayer();
 
     // クロスフェード条件チェック
-    const doCrossfade = useCrossfade && state.settings.crossfade && state.isPlaying;
+    const doCrossfade = useCrossfade && state.settings.crossfade && state.isPlaying && !state.isCrossfading;
 
     if (doCrossfade) {
         state.isCrossfading = true;
         switchActivePlayer();
+    } else {
+        // クロスフェードでない場合は、前のプレイヤーを即座に停止
+        // これにより2重再生を防止
+        if (!previousPlayer.paused) {
+            previousPlayer.pause();
+        }
     }
 
     // 状態更新
@@ -86,8 +92,6 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             currentPlayer.load();
 
             // モバイルブラウザでの自動再生制限回避のため、イベントリスナーを待たずに再生を試みる
-            // 一部の環境ではload()直後のcurrentTime設定が無視される可能性があるため、
-            // play()のPromise完了後に再度チェックする手法をとる
             currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
 
             currentPlayer.play().then(() => {
@@ -99,8 +103,7 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             }).catch(err => {
                 console.warn('Playback failed (Crossfade or Autoplay restricted):', err);
 
-                // 再生に失敗した場合（特にモバイルでの自動再生制限）、
-                // クロスフェードを中止して単発再生として振る舞わせるリカバリー処理
+                // 再生に失敗した場合のリカバリー処理
                 if (doCrossfade) {
                     // クロスフェード状態をリセット
                     state.isCrossfading = false;
@@ -111,17 +114,13 @@ export async function playMusic(music, vocal, useCrossfade = false) {
 
                     // 現在のプレイヤーの音量を戻す
                     currentPlayer.volume = state.volume;
-
-                    // ユーザー操作が必要であることを示すUIへの反映などはここで行えるが、
-                    // 今回はアプリの挙動として「止まる」よりは「何も起きない（or 次のタップで再生）」状態へ
-                    // しかし、play()失敗 = 音が出ない なので、
-                    // ここでresolve()してしまうとUIは再生中になり矛盾する。
-                    // 解決策として、playMusic関数全体としては完了したことにし、
-                    // UI側で停止状態に見せるか、あるいはここは何もしないでユーザーの次のアクションを待つ。
-                    // エラーハンドリングとしては、「再生は失敗した」としてresolveして、
-                    // あとはtogglePlayPauseなどで再開してもらうのが自然。
                 }
-                resolve(); // エラーでも一旦resolveして処理を止めない
+
+                // 再生失敗時は isPlaying を false にする
+                state.isPlaying = false;
+                updatePlayPauseButton();
+
+                resolve();
             });
         });
     };
@@ -143,10 +142,7 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     if (doCrossfade) {
         performCrossfade(previousPlayer, currentPlayer);
     } else {
-        if (previousPlayer !== currentPlayer) {
-            previousPlayer.pause();
-            previousPlayer.currentTime = 0;
-        }
+        previousPlayer.currentTime = 0;
         state.isPlaying = true;
         updatePlayPauseButton();
     }

@@ -321,16 +321,13 @@ function initEventListeners() {
                 updateProgress();
 
                 // クロスフェード自動再生
+                // 重複発火防止: isCrossfading が true になったら以降は発火しない
                 if (state.settings.crossfade && state.settings.autoplay && !state.isCrossfading && player.duration) {
                     const remaining = player.duration - player.currentTime;
-                    // INTROスキップ秒数を考慮（実質の曲終わり）
-                    // ここでのCONFIG.INTRO_SKIP_SECONDSは9秒だが、曲の末尾ではない。
-                    // 以前のロジック: if (remaining <= state.settings.crossfadeDuration && remaining > 0)
-                    // これは曲の終わり近くで発火。
-                    // 元のコードは: 
-                    // if (remaining <= state.settings.crossfadeDuration && remaining > 0) { playNext(true); }
 
-                    if (remaining <= state.settings.crossfadeDuration && remaining > 0) {
+                    if (remaining <= state.settings.crossfadeDuration && remaining > 0.5) {
+                        // 0.5秒以上残っている場合のみクロスフェード開始
+                        // これにより終了間際の連続発火を防ぐ
                         playNext(true);
                     }
                 }
@@ -347,13 +344,22 @@ function initEventListeners() {
 
         player.addEventListener('ended', () => {
             if (getActivePlayer() === player) {
-                if (!state.settings.crossfade || state.isCrossfading) {
-                    if (state.isRepeat) {
-                        player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
-                        player.play().catch(err => console.warn('Playback failed:', err));
-                    } else if (state.settings.autoplay && !state.isCrossfading) {
-                        playNext(false);
-                    }
+                // クロスフェード中は、フェードアウト側のプレイヤーが終了しただけなので何もしない
+                if (state.isCrossfading) {
+                    return;
+                }
+
+                if (state.isRepeat) {
+                    // リピートモード
+                    player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+                    player.play().catch(err => console.warn('Playback failed:', err));
+                } else if (state.settings.autoplay) {
+                    // 自動再生（クロスフェードの有無に関わらずフォールバック）
+                    playNext(false);
+                } else {
+                    // 自動再生オフ
+                    state.isPlaying = false;
+                    updatePlayPauseButton();
                 }
             }
         });
