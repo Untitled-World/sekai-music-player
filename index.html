@@ -22,6 +22,16 @@
         rel="stylesheet">
 
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registered'))
+                    .catch(err => console.log('SW registration failed: ', err));
+            });
+        }
+    </script>
 </head>
 
 <body>
@@ -65,8 +75,10 @@
                     autocomplete="off">
                 <button class="search-clear" id="searchClear" title="クリア">✕</button>
             </div>
+            <!-- フィルターチップ -->
             <div class="filter-chips">
                 <button class="chip active" data-filter="all">すべて</button>
+                <button class="chip" data-filter="favorites">❤️ お気に入り</button>
                 <button class="chip" data-filter="Leo/need">Leo/need</button>
                 <button class="chip" data-filter="MORE MORE JUMP！">MORE MORE JUMP！</button>
                 <button class="chip" data-filter="Vivid BAD SQUAD">Vivid BAD SQUAD</button>
@@ -129,6 +141,18 @@
             <!-- プレイヤーコントロール -->
             <div class="player-controls">
                 <div class="control-buttons">
+                    <button class="control-btn" id="favBtn" title="お気に入り">
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="fav-icon-outline">
+                            <path
+                                d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 4.05 7.75 10 13 5.95-5.25 10-9.22 10-13 0-3.08-2.42-5.5-5.5-5.5zm-3.502 6a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5z"
+                                stroke="currentColor" stroke-width="2" fill="none" />
+                        </svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="fav-icon-filled"
+                            style="display:none; color: #ff6b81;">
+                            <path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                    </button>
                     <button class="control-btn" id="prevBtn" title="前の曲">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
@@ -295,8 +319,11 @@
         </div>
     </div>
 
+    <!-- Visualizer Canvas -->
+    <canvas id="visualizerCanvas" class="visualizer-canvas"></canvas>
+
     <!-- オーディオ要素（非表示） -->
-    <audio id="audioPlayer" preload="metadata"></audio>
+    <audio id="audioPlayer" preload="metadata" crossorigin="anonymous"></audio>
 
     <script src="app.js"></script>
 </body>

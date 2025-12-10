@@ -36,7 +36,8 @@ const state = {
     },
     playbackContext: 'all',
     activePlaylistId: null,
-    pendingAddMusicId: null  // 統合プレイリストモーダル用
+    pendingAddMusicId: null,  // 統合プレイリストモーダル用
+    favorites: [] // お気に入りリスト
 };
 
 // DOM要素
@@ -105,8 +106,17 @@ const elements = {
     contextPlayBtn: document.getElementById('contextPlayBtn'),
     contextDeleteBtn: document.getElementById('contextDeleteBtn'),
     scrollToTopBtn: document.getElementById('scrollToTopBtn'),
-    autoplayToggle: document.getElementById('autoplayToggle')
+    autoplayToggle: document.getElementById('autoplayToggle'),
+    favBtn: document.getElementById('favBtn'),
+    visualizerCanvas: document.getElementById('visualizerCanvas')
 };
+
+// Visualizer Context
+let audioCtx;
+let analyser;
+let source;
+let dataArray;
+let animationId;
 
 // ユーティリティ関数
 function formatTime(seconds) {
@@ -321,6 +331,77 @@ function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
     updateThemeIcon(savedTheme);
+    loadFavorites();
+    initShortcuts();
+    setupVisualizer();
+}
+
+// お気に入り管理
+function loadFavorites() {
+    const saved = localStorage.getItem('sekai_favorites');
+    if (saved) {
+        state.favorites = JSON.parse(saved);
+    }
+}
+
+function saveFavorites() {
+    localStorage.setItem('sekai_favorites', JSON.stringify(state.favorites));
+}
+
+function toggleFavorite(musicId) {
+    const index = state.favorites.indexOf(musicId);
+    if (index === -1) {
+        state.favorites.push(musicId);
+    } else {
+        state.favorites.splice(index, 1);
+    }
+    saveFavorites();
+
+    // UI更新
+    updateFavoriteBtnState(musicId);
+
+    // お気に入りフィルター表示中はリストを更新
+    if (state.currentFilter === 'favorites') {
+        filterMusic();
+    }
+}
+
+function isFavorite(musicId) {
+    return state.favorites.includes(musicId);
+}
+
+function updateFavoriteBtnState(musicId) {
+    // プレイヤーバーのボタン更新
+    if (state.currentTrack && state.currentTrack.id === musicId) {
+        const isFav = isFavorite(musicId);
+        const outline = elements.favBtn.querySelector('.fav-icon-outline');
+        const filled = elements.favBtn.querySelector('.fav-icon-filled');
+
+        if (outline && filled) {
+            if (isFav) {
+                outline.style.display = 'none';
+                filled.style.display = 'block';
+                elements.favBtn.classList.add('active');
+            } else {
+                outline.style.display = 'block';
+                filled.style.display = 'none';
+                elements.favBtn.classList.remove('active');
+            }
+        }
+    }
+
+    // カードのボタン更新
+    const cardBtn = document.querySelector(`.music-card[data-id="${musicId}"] .fav-card-btn`);
+    if (cardBtn) {
+        const isFav = isFavorite(musicId);
+        if (isFav) {
+            cardBtn.classList.add('active');
+            cardBtn.innerHTML = '❤️';
+        } else {
+            cardBtn.classList.remove('active');
+            cardBtn.innerHTML = '🤍';
+        }
+    }
 }
 
 function toggleTheme() {
@@ -439,7 +520,6 @@ function createMusicCard(music) {
     const isPlaying = state.currentTrack?.id === music.id;
 
     // 通常モードでは追加ボタン、プレイリストモードでは削除ボタンを表示
-    let actionBtn = '';
     if (state.playbackContext === 'playlist') {
         actionBtn = `
             <button class="card-action-btn delete-btn" data-id="${music.id}" title="プレイリストから削除">
@@ -447,8 +527,12 @@ function createMusicCard(music) {
             </button>
         `;
     } else {
+        const isFav = isFavorite(music.id);
         actionBtn = `
-            <button class="card-action-btn add-btn" data-id="${music.id}" title="プレイリストに追加">
+            <button class="card-action-btn fav-card-btn ${isFav ? 'active' : ''}" data-id="${music.id}" title="${isFav ? 'お気に入りから削除' : 'お気に入りに追加'}">
+                ${isFav ? '❤️' : '🤍'}
+            </button>
+            <button class="card-action-btn add-btn" data-id="${music.id}" title="プレイリストに追加" style="right: 48px;">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </button>
         `;
@@ -504,6 +588,14 @@ function attachCardEventListeners() {
                 return;
             }
 
+            // お気に入りボタン（カード）
+            const favBtn = e.target.closest('.fav-card-btn');
+            if (favBtn) {
+                e.stopPropagation();
+                toggleFavorite(musicId);
+                return;
+            }
+
             if (music.vocals?.length === 1 || e.target.closest('.play-overlay-btn')) {
                 playMusic(music, getPreferredVocal(music));
             } else if (music.vocals?.length > 1) {
@@ -521,7 +613,9 @@ function filterMusic() {
     const filter = state.currentFilter;
 
     state.filteredData = state.musicData.filter(music => {
-        if (filter !== 'all') {
+        if (filter === 'favorites') {
+            if (!state.favorites.includes(music.id)) return false;
+        } else if (filter !== 'all') {
             const hasUnit = music.unit?.some(u => u === filter);
             if (!hasUnit) return false;
         }
@@ -736,7 +830,10 @@ function updateNowPlayingUI() {
     elements.playerJacketImg.src = jacketUrl;
     elements.playerJacketImg.setAttribute('referrerpolicy', 'no-referrer');
     elements.playerTitle.textContent = state.currentTrack.title;
+    elements.playerTitle.textContent = state.currentTrack.title;
     elements.playerArtist.textContent = state.currentVocal?.vo || state.currentTrack.composer || '-';
+
+    updateFavoriteBtnState(state.currentTrack.id);
 }
 
 function updatePlayingCard() {
@@ -1056,7 +1153,13 @@ function initEventListeners() {
     elements.shuffleBtn.addEventListener('click', toggleShuffle);
     elements.volumeBtn.addEventListener('click', toggleMute);
     elements.volumeSlider.addEventListener('input', (e) => setVolume(e.target.value));
+    elements.volumeSlider.addEventListener('input', (e) => setVolume(e.target.value));
     elements.lyricsBtn.addEventListener('click', openLyricsModal);
+    elements.favBtn.addEventListener('click', () => {
+        if (state.currentTrack) {
+            toggleFavorite(state.currentTrack.id);
+        }
+    });
 
     // Progress bar
     elements.progressBar.addEventListener('click', seekTo);
@@ -1094,32 +1197,7 @@ function initEventListeners() {
         if (e.target === elements.lyricsModal) closeLyricsModal();
     });
 
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-
-        switch (e.code) {
-            case 'Space':
-                e.preventDefault();
-                togglePlayPause();
-                break;
-            case 'ArrowLeft':
-                const newTimeBack = elements.audioPlayer.currentTime - 10;
-                elements.audioPlayer.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, newTimeBack);
-                break;
-            case 'ArrowRight':
-                elements.audioPlayer.currentTime += 10;
-                break;
-            case 'ArrowUp':
-                setVolume(Math.min(100, state.volume * 100 + 10));
-                elements.volumeSlider.value = state.volume * 100;
-                break;
-            case 'ArrowDown':
-                setVolume(Math.max(0, state.volume * 100 - 10));
-                elements.volumeSlider.value = state.volume * 100;
-                break;
-        }
-    });
+    // Keyboard shortcuts handled in initShortcuts()
 
     // コンテキストバー（プレイリストビュー）
     if (elements.contextCloseBtn) {
@@ -1212,9 +1290,128 @@ function initEventListeners() {
     }
 }
 
+// キーボードショートカット
+function initShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        switch (e.code) {
+            case 'Space':
+                e.preventDefault();
+                togglePlayPause();
+                break;
+            case 'ArrowLeft':
+                const newTimeBack = elements.audioPlayer.currentTime - 5;
+                elements.audioPlayer.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, newTimeBack);
+                break;
+            case 'ArrowRight':
+                elements.audioPlayer.currentTime += 5;
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                setVolume(Math.min(100, state.volume * 100 + 10));
+                elements.volumeSlider.value = state.volume * 100;
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                setVolume(Math.max(0, state.volume * 100 - 10));
+                elements.volumeSlider.value = state.volume * 100;
+                break;
+            case 'KeyM':
+                toggleMute();
+                break;
+            case 'KeyL':
+                openLyricsModal();
+                break;
+        }
+    });
+}
+
+// Audio Visualizer
+function setupVisualizer() {
+    if (!elements.visualizerCanvas) return;
+
+    // Resize canvas
+    function resizeCanvas() {
+        elements.visualizerCanvas.width = window.innerWidth;
+        elements.visualizerCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Init Audio Context on first interaction
+    const initAudioContext = () => {
+        if (!audioCtx) {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+
+                source = audioCtx.createMediaElementSource(elements.audioPlayer);
+                source.connect(analyser);
+                analyser.connect(audioCtx.destination);
+
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                drawVisualizer();
+            } catch (e) {
+                console.warn('Audio API setup failed (possibly CORS issues):', e);
+            }
+        } else if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        document.removeEventListener('click', initAudioContext);
+        document.removeEventListener('keydown', initAudioContext);
+    };
+
+    document.addEventListener('click', initAudioContext);
+    document.addEventListener('keydown', initAudioContext);
+
+    // Check CORS
+    elements.audioPlayer.crossOrigin = "anonymous";
+}
+
+function drawVisualizer() {
+    animationId = requestAnimationFrame(drawVisualizer);
+
+    if (!analyser || !dataArray) return;
+
+    analyser.getByteFrequencyData(dataArray);
+
+    const canvas = elements.visualizerCanvas;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw settings
+    const barWidth = (width / dataArray.length) * 2.5;
+    let barHeight;
+    let x = 0;
+
+    // Bottom aligned bars
+    for (let i = 0; i < dataArray.length; i++) {
+        barHeight = dataArray[i] * (height / 500); // Scale factor
+
+        const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
+        gradient.addColorStop(0, 'rgba(108, 92, 231, 0.5)'); // Accent Primary
+        gradient.addColorStop(1, 'rgba(253, 121, 168, 0.1)'); // Pinkish
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+
+        x += barWidth + 1;
+    }
+}
+
 // 初期化
 async function init() {
     initTheme();
+    // initTheme calls loadFavorites, initShortcuts, setupVisualizer due to previous edit
+    // But wait, initTheme implementation in app.js (lines 320-324 + my edit) calls them.
+    // So good.
+
     loadSettings();
     loadPlaylists();
     initEventListeners();
