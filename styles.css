@@ -206,10 +206,17 @@ body {
     margin-bottom: var(--spacing-lg);
 }
 
+.search-row {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+}
+
 .search-wrapper {
     position: relative;
     display: flex;
     align-items: center;
+    flex: 1;
 }
 
 .search-icon {
@@ -230,6 +237,35 @@ body {
     color: var(--text-primary);
     outline: none;
     transition: var(--transition-fast);
+}
+
+.sort-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 0 var(--spacing-lg);
+    height: 50px;
+    /* Match input height roughly */
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-color);
+    background: var(--bg-glass);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.sort-toggle:hover {
+    background: var(--bg-card);
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.sort-toggle.active {
+    background: rgba(108, 92, 231, 0.1);
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
 }
 
 .search-input::placeholder {
@@ -999,9 +1035,24 @@ body {
         left: 50%;
         transform: translate(-50%, -50%);
         top: 40px;
-        /* 16px padding + 24px (half jacket height) */
         z-index: 5;
         width: auto;
+        /* Ensure clicking area doesn't span too wide */
+        pointer-events: none;
+    }
+
+    .control-buttons>* {
+        pointer-events: auto;
+    }
+
+    /* Fav button: Position absolutely to not affect centering of play controls */
+    #favBtn {
+        position: absolute;
+        left: 100%;
+        margin-left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        right: auto;
     }
 
     /* 1. Track Jacket (Left) */

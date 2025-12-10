@@ -69,11 +69,17 @@
     <main class="main-container">
         <!-- 検索＆フィルターセクション -->
         <section class="search-section glass-card">
-            <div class="search-wrapper">
-                <div class="search-icon">🔍</div>
-                <input type="text" id="searchInput" class="search-input" placeholder="楽曲名、作曲者、ユニットで検索..."
-                    autocomplete="off">
-                <button class="search-clear" id="searchClear" title="クリア">✕</button>
+            <div class="search-row">
+                <div class="search-wrapper">
+                    <div class="search-icon">🔍</div>
+                    <input type="text" id="searchInput" class="search-input" placeholder="楽曲名、作曲者、ユニットで検索..."
+                        autocomplete="off">
+                    <button class="search-clear" id="searchClear" title="クリア">✕</button>
+                </div>
+                <button class="sort-toggle" id="sortToggleBtn" title="並び替え">
+                    <span class="sort-icon">⇅</span>
+                    <span class="sort-label">デフォルト</span>
+                </button>
             </div>
             <!-- フィルターチップ -->
             <div class="filter-chips">
@@ -268,6 +274,13 @@
                     </select>
                 </div>
                 <div class="setting-group">
+                    <label class="setting-label">音量</label>
+                    <div class="slider-container" style="margin-top: 10px;">
+                        <input type="range" id="settingVolumeSlider" min="0" max="100" value="80" class="volume-slider"
+                            style="width: 100%;">
+                    </div>
+                </div>
+                <div class="setting-group">
                     <label class="setting-label">自動再生</label>
                     <p class="setting-desc">曲終了時に次の曲を自動的に再生します。</p>
                     <label class="toggle-switch">
@@ -275,6 +288,32 @@
                         <span class="toggle-slider"></span>
                         <span class="toggle-label">ON</span>
                     </label>
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">オーディオビジュアライザー (PC推奨)</label>
+                    <p class="setting-desc">再生音に合わせて画面効果を表示します。<br>※スマホでのバックグラウンド再生に影響する場合があります。</p>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="visualizerToggle">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">OFF</span>
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">クロスフェード再生</label>
+                    <p class="setting-desc">曲の切り替わり時にクロスフェードを行います（1〜5秒）。</p>
+                    <div class="setting-row">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="crossfadeToggle">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">OFF</span>
+                        </label>
+                    </div>
+                    <div class="slider-container" id="crossfadeSliderContainer"
+                        style="display: none; margin-top: 10px;">
+                        <input type="range" id="crossfadeSlider" min="1" max="5" step="0.5" value="3"
+                            class="volume-slider" style="width: 100%;">
+                        <span id="crossfadeValue" style="font-size: 0.9rem; color: var(--text-secondary);">3.0秒</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -324,6 +363,7 @@
 
     <!-- オーディオ要素（非表示） -->
     <audio id="audioPlayer" preload="metadata" crossorigin="anonymous"></audio>
+    <audio id="audioPlayerAlt" preload="metadata" crossorigin="anonymous"></audio>
 
     <script src="app.js"></script>
 </body>

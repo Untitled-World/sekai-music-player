@@ -32,16 +32,23 @@ const state = {
     savedPlaylists: [],
     settings: {
         vocalPriority: 'sekai',
-        autoplay: true
+        autoplay: true,
+        crossfade: false,
+        crossfadeDuration: 3,
+        visualizer: false // デフォルトOFF（バックグラウンド再生対策）
     },
     playbackContext: 'all',
     activePlaylistId: null,
     pendingAddMusicId: null,  // 統合プレイリストモーダル用
-    favorites: [] // お気に入りリスト
+    favorites: [], // お気に入りリスト
+    activePlayerId: 'primary', // 'primary' or 'secondary'
+    isCrossfading: false,
+    sortMode: 'default' // 'default', 'newly_written'
 };
 
 // DOM要素
 const elements = {
+    sortToggleBtn: document.getElementById('sortToggleBtn'),
     musicGrid: document.getElementById('musicGrid'),
     searchInput: document.getElementById('searchInput'),
     searchClear: document.getElementById('searchClear'),
@@ -97,7 +104,9 @@ const elements = {
     confirmClose: document.getElementById('confirmClose'),
     confirmCancelBtn: document.getElementById('confirmCancelBtn'),
     confirmOkBtn: document.getElementById('confirmOkBtn'),
+    confirmOkBtn: document.getElementById('confirmOkBtn'),
     audioPlayer: document.getElementById('audioPlayer'),
+    audioPlayerAlt: document.getElementById('audioPlayerAlt'),
     // 追加要素
     contextBar: document.getElementById('contextBar'),
     contextTitle: document.getElementById('contextTitle'),
@@ -107,6 +116,12 @@ const elements = {
     contextDeleteBtn: document.getElementById('contextDeleteBtn'),
     scrollToTopBtn: document.getElementById('scrollToTopBtn'),
     autoplayToggle: document.getElementById('autoplayToggle'),
+    visualizerToggle: document.getElementById('visualizerToggle'),
+    crossfadeToggle: document.getElementById('crossfadeToggle'),
+    crossfadeSlider: document.getElementById('crossfadeSlider'),
+    crossfadeValue: document.getElementById('crossfadeValue'),
+    crossfadeSliderContainer: document.getElementById('crossfadeSliderContainer'),
+    settingVolumeSlider: document.getElementById('settingVolumeSlider'),
     favBtn: document.getElementById('favBtn'),
     visualizerCanvas: document.getElementById('visualizerCanvas')
 };
@@ -117,6 +132,19 @@ let analyser;
 let source;
 let dataArray;
 let animationId;
+
+// プレイヤーヘルパー
+function getActivePlayer() {
+    return state.activePlayerId === 'primary' ? elements.audioPlayer : elements.audioPlayerAlt;
+}
+
+function getInactivePlayer() {
+    return state.activePlayerId === 'primary' ? elements.audioPlayerAlt : elements.audioPlayer;
+}
+
+function switchActivePlayer() {
+    state.activePlayerId = state.activePlayerId === 'primary' ? 'secondary' : 'primary';
+}
 
 // ユーティリティ関数
 function formatTime(seconds) {
@@ -181,12 +209,41 @@ function loadSettings() {
         elements.autoplayToggle.checked = state.settings.autoplay;
         updateAutoplayLabel();
     }
+    if (elements.visualizerToggle) {
+        elements.visualizerToggle.checked = state.settings.visualizer;
+        updateVisualizerLabel();
+    }
+    if (elements.crossfadeToggle) {
+        elements.crossfadeToggle.checked = state.settings.crossfade;
+        updateCrossfadeLabel();
+        if (state.settings.crossfade) {
+            elements.crossfadeSliderContainer.style.display = 'block';
+        }
+    }
+    if (elements.crossfadeSlider) {
+        elements.crossfadeSlider.value = state.settings.crossfadeDuration;
+        elements.crossfadeValue.textContent = `${state.settings.crossfadeDuration}秒`;
+    }
 }
 
 function updateAutoplayLabel() {
     const label = elements.autoplayToggle?.parentElement?.querySelector('.toggle-label');
     if (label) {
         label.textContent = state.settings.autoplay ? 'ON' : 'OFF';
+    }
+}
+
+function updateVisualizerLabel() {
+    const label = elements.visualizerToggle?.parentElement?.querySelector('.toggle-label');
+    if (label) {
+        label.textContent = state.settings.visualizer ? 'ON' : 'OFF';
+    }
+}
+
+function updateCrossfadeLabel() {
+    const label = elements.crossfadeToggle?.parentElement?.querySelector('.toggle-label');
+    if (label) {
+        label.textContent = state.settings.crossfade ? 'ON' : 'OFF';
     }
 }
 
@@ -637,8 +694,33 @@ function filterMusic() {
         return true;
     });
 
+    // ソート処理
+    if (state.sortMode === 'newly_written') {
+        state.filteredData.sort((a, b) => {
+            const aVal = a.isNewlyWrittenMusic ? 1 : 0;
+            const bVal = b.isNewlyWrittenMusic ? 1 : 0;
+            return bVal - aVal; // 降順（trueが先）
+        });
+    }
+
     renderMusicGrid();
     updateStats();
+}
+
+function toggleSortMode() {
+    state.sortMode = state.sortMode === 'default' ? 'newly_written' : 'default';
+
+    // UI更新
+    const label = elements.sortToggleBtn.querySelector('.sort-label');
+    if (state.sortMode === 'newly_written') {
+        label.textContent = '書き下ろし順';
+        elements.sortToggleBtn.classList.add('active');
+    } else {
+        label.textContent = 'デフォルト';
+        elements.sortToggleBtn.classList.remove('active');
+    }
+
+    filterMusic();
 }
 
 function updateStats() {
@@ -793,34 +875,100 @@ function closeLyricsModal() {
 }
 
 // オーディオプレイヤー
-function playMusic(music, vocal) {
+async function playMusic(music, vocal, useCrossfade = false) {
     if (!music || !vocal) return;
 
+    // 前の曲情報を保存（クロスフェード用）
+    const previousPlayer = getActivePlayer();
+
+    // クロスフェード条件チェック
+    const doCrossfade = useCrossfade && state.settings.crossfade && state.isPlaying;
+
+    if (doCrossfade) {
+        state.isCrossfading = true;
+        switchActivePlayer();
+    }
+
+    // 状態更新
     state.currentTrack = music;
     state.currentVocal = vocal;
-
     state.playlist = state.filteredData;
     state.currentIndex = state.playlist.findIndex(m => m.id === music.id);
 
+    // 新しいプレイヤーの準備
+    const currentPlayer = getActivePlayer();
     const audioUrl = getAudioUrl(vocal.assetbundleName);
-    elements.audioPlayer.src = audioUrl;
-    elements.audioPlayer.load();
 
-    const onLoadedMetadata = () => {
-        elements.audioPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
-        elements.audioPlayer.play().catch(err => console.warn('Playback failed:', err));
-        elements.audioPlayer.removeEventListener('loadedmetadata', onLoadedMetadata);
+    // イベントリスナーの再設定は不要（initで両方に同じものを登録する戦略に変更するため）
+    // ただし、メタデータロード時の処理はここで行う
+
+    const playNewTrack = () => {
+        return new Promise((resolve) => {
+            currentPlayer.src = audioUrl;
+            currentPlayer.volume = doCrossfade ? 0 : state.volume; // クロスフェード開始時は音量0
+            currentPlayer.load();
+
+            const onLoadedMetadata = () => {
+                currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+                currentPlayer.play().then(() => {
+                    resolve();
+                }).catch(err => console.warn('Playback failed:', err));
+                currentPlayer.removeEventListener('loadedmetadata', onLoadedMetadata);
+            };
+            currentPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
+        });
     };
-    elements.audioPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
 
-    elements.audioPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+    await playNewTrack();
 
     updateNowPlayingUI();
     updatePlayingCard();
     elements.nowPlayingBar.classList.add('visible');
-
     updateDynamicBackground(music.assetbundleName);
     updateMediaSession(music, vocal);
+
+    if (doCrossfade) {
+        performCrossfade(previousPlayer, currentPlayer);
+    } else {
+        // クロスフェードしない場合、前のプレイヤーは即停止
+        // ただし自分自身が停止しないように注意（同じプレイヤーを使っている場合）
+        if (previousPlayer !== currentPlayer) {
+            previousPlayer.pause();
+            previousPlayer.currentTime = 0;
+        }
+        state.isPlaying = true; // 念のため
+        updatePlayPauseButton();
+    }
+}
+
+function performCrossfade(fadeOutPlayer, fadeInPlayer) {
+    const duration = state.settings.crossfadeDuration * 1000;
+    const steps = 20;
+    const intervalTime = duration / steps;
+    const volumeStep = state.volume / steps;
+
+    let currentStep = 0;
+
+    const fadeInterval = setInterval(() => {
+        currentStep++;
+
+        // Fade Out
+        const newOutVol = Math.max(0, state.volume - (volumeStep * currentStep));
+        if (!fadeOutPlayer.paused) fadeOutPlayer.volume = newOutVol;
+
+        // Fade In
+        const newInVol = Math.min(state.volume, volumeStep * currentStep);
+        if (!fadeInPlayer.paused) fadeInPlayer.volume = newInVol;
+
+        if (currentStep >= steps) {
+            clearInterval(fadeInterval);
+            fadeOutPlayer.pause();
+            fadeOutPlayer.currentTime = 0;
+            fadeOutPlayer.volume = state.volume; // 音量を戻しておく
+            fadeInPlayer.volume = state.volume;
+            state.isCrossfading = false;
+        }
+    }, intervalTime);
 }
 
 function updateNowPlayingUI() {
@@ -849,13 +997,14 @@ function updateDynamicBackground(assetbundleName) {
 }
 
 function togglePlayPause() {
-    if (elements.audioPlayer.paused) {
-        if (elements.audioPlayer.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
-            elements.audioPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+    const player = getActivePlayer();
+    if (player.paused) {
+        if (player.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
+            player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
         }
-        elements.audioPlayer.play().catch(err => console.warn('Playback failed:', err));
+        player.play().catch(err => console.warn('Playback failed:', err));
     } else {
-        elements.audioPlayer.pause();
+        player.pause();
     }
 }
 
@@ -872,7 +1021,7 @@ function updatePlayPauseButton() {
     }
 }
 
-function playNext() {
+function playNext(useCrossfade = false) {
     if (state.playlist.length === 0) return;
 
     let nextIndex;
@@ -885,15 +1034,17 @@ function playNext() {
     const nextMusic = state.playlist[nextIndex];
     if (nextMusic) {
         const vocal = getPreferredVocal(nextMusic);
-        playMusic(nextMusic, vocal);
+        playMusic(nextMusic, vocal, useCrossfade);
     }
 }
 
 function playPrev() {
     if (state.playlist.length === 0) return;
 
-    if (elements.audioPlayer.currentTime > CONFIG.INTRO_SKIP_SECONDS + 3) {
-        elements.audioPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+    const player = getActivePlayer();
+
+    if (player.currentTime > CONFIG.INTRO_SKIP_SECONDS + 3) {
+        player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
         return;
     }
 
@@ -907,7 +1058,7 @@ function playPrev() {
     const prevMusic = state.playlist[prevIndex];
     if (prevMusic) {
         const vocal = getPreferredVocal(prevMusic);
-        playMusic(prevMusic, vocal);
+        playMusic(prevMusic, vocal, false); // 前の曲へはクロスフェードしない
     }
 }
 
@@ -923,20 +1074,34 @@ function toggleShuffle() {
 
 function setVolume(value) {
     state.volume = value / 100;
+    // 両方のプレイヤーに適用（クロスフェード中なら次の更新で反映される）
     elements.audioPlayer.volume = state.volume;
+    elements.audioPlayerAlt.volume = state.volume;
+
+    // UI同期
+    elements.volumeSlider.value = value;
+    if (elements.settingVolumeSlider) {
+        elements.settingVolumeSlider.value = value;
+    }
+
     updateVolumeIcon();
 }
 
 function toggleMute() {
-    elements.audioPlayer.muted = !elements.audioPlayer.muted;
+    const player = getActivePlayer();
+    player.muted = !player.muted;
+    // 状態同期のため両方設定
+    elements.audioPlayer.muted = player.muted;
+    elements.audioPlayerAlt.muted = player.muted;
     updateVolumeIcon();
 }
 
 function updateVolumeIcon() {
     const highIcon = elements.volumeBtn.querySelector('.volume-high');
     const mutedIcon = elements.volumeBtn.querySelector('.volume-muted');
+    const player = getActivePlayer();
 
-    if (elements.audioPlayer.muted || state.volume === 0) {
+    if (player.muted || state.volume === 0) {
         highIcon.style.display = 'none';
         mutedIcon.style.display = 'block';
     } else {
@@ -947,7 +1112,11 @@ function updateVolumeIcon() {
 
 // プログレスバー
 function updateProgress() {
-    const { currentTime, duration } = elements.audioPlayer;
+    const player = getActivePlayer();
+    // 再生中の場合のみ更新（クロスフェードの裏側からのイベントを無視）
+    // playerが変わった直後などは少し不安定になるかもしれないが、getActivePlayerで追従
+
+    const { currentTime, duration } = player;
     if (isNaN(duration)) return;
 
     const adjustedCurrent = Math.max(0, currentTime - CONFIG.INTRO_SKIP_SECONDS);
@@ -967,7 +1136,8 @@ function seekTo(e) {
     const rect = elements.progressBar.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
 
-    const { duration } = elements.audioPlayer;
+    const player = getActivePlayer();
+    const { duration } = player;
     if (isNaN(duration)) return;
 
     const adjustedDuration = Math.max(0, duration - CONFIG.INTRO_SKIP_SECONDS);
@@ -980,10 +1150,11 @@ function seekTo(e) {
 }
 
 function updateBuffered() {
-    const buffered = elements.audioPlayer.buffered;
+    const player = getActivePlayer();
+    const buffered = player.buffered;
     if (buffered.length > 0) {
         const bufferedEnd = buffered.end(buffered.length - 1);
-        const duration = elements.audioPlayer.duration;
+        const duration = player.duration;
 
         if (duration > 0) {
             const adjustedDuration = Math.max(0, duration - CONFIG.INTRO_SKIP_SECONDS);
@@ -1041,6 +1212,38 @@ function initEventListeners() {
         filterMusic();
     });
 
+    if (elements.visualizerToggle) {
+        elements.visualizerToggle.addEventListener('change', (e) => {
+            state.settings.visualizer = e.target.checked;
+            updateVisualizerLabel();
+            saveSettings();
+
+            if (state.settings.visualizer) {
+                setupVisualizer();
+            } else {
+                // OFFにする場合：AudioContextを閉じて通常再生に戻す
+                if (audioCtx && audioCtx.state !== 'closed') {
+                    audioCtx.close().then(() => {
+                        audioCtx = null;
+                        analyser = null;
+                        source = null;
+                        // キャンバスをクリア
+                        const canvas = elements.visualizerCanvas;
+                        if (canvas) {
+                            const ctx = canvas.getContext('2d');
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    // ソートトリガー
+    if (elements.sortToggleBtn) {
+        elements.sortToggleBtn.addEventListener('click', toggleSortMode);
+    }
+
     // フィルターチップ
     document.querySelectorAll('.chip').forEach(chip => {
         chip.addEventListener('click', () => {
@@ -1077,6 +1280,23 @@ function initEventListeners() {
     if (elements.vocalPrioritySelect) {
         elements.vocalPrioritySelect.addEventListener('change', (e) => {
             state.settings.vocalPriority = e.target.value;
+            saveSettings();
+        });
+    }
+
+    if (elements.crossfadeToggle) {
+        elements.crossfadeToggle.addEventListener('change', (e) => {
+            state.settings.crossfade = e.target.checked;
+            elements.crossfadeSliderContainer.style.display = e.target.checked ? 'block' : 'none';
+            updateCrossfadeLabel();
+            saveSettings();
+        });
+    }
+
+    if (elements.crossfadeSlider) {
+        elements.crossfadeSlider.addEventListener('input', (e) => {
+            state.settings.crossfadeDuration = parseFloat(e.target.value);
+            elements.crossfadeValue.textContent = `${state.settings.crossfadeDuration}秒`;
             saveSettings();
         });
     }
@@ -1153,7 +1373,11 @@ function initEventListeners() {
     elements.shuffleBtn.addEventListener('click', toggleShuffle);
     elements.volumeBtn.addEventListener('click', toggleMute);
     elements.volumeSlider.addEventListener('input', (e) => setVolume(e.target.value));
-    elements.volumeSlider.addEventListener('input', (e) => setVolume(e.target.value));
+
+    if (elements.settingVolumeSlider) {
+        elements.settingVolumeSlider.addEventListener('input', (e) => setVolume(e.target.value));
+    }
+
     elements.lyricsBtn.addEventListener('click', openLyricsModal);
     elements.favBtn.addEventListener('click', () => {
         if (state.currentTrack) {
@@ -1164,26 +1388,56 @@ function initEventListeners() {
     // Progress bar
     elements.progressBar.addEventListener('click', seekTo);
 
-    // Audio events
-    elements.audioPlayer.addEventListener('play', () => {
-        state.isPlaying = true;
-        updatePlayPauseButton();
-    });
+    // Audio events (Bind to both players)
+    [elements.audioPlayer, elements.audioPlayerAlt].forEach(player => {
+        player.addEventListener('play', () => {
+            if (getActivePlayer() === player && !state.isCrossfading) {
+                state.isPlaying = true;
+                updatePlayPauseButton();
+            }
+        });
 
-    elements.audioPlayer.addEventListener('pause', () => {
-        state.isPlaying = false;
-        updatePlayPauseButton();
-    });
+        player.addEventListener('pause', () => {
+            // クロスフェード中のpause無視
+            if (getActivePlayer() === player && !state.isCrossfading) {
+                state.isPlaying = false;
+                updatePlayPauseButton();
+            }
+        });
 
-    elements.audioPlayer.addEventListener('timeupdate', updateProgress);
-    elements.audioPlayer.addEventListener('progress', updateBuffered);
-    elements.audioPlayer.addEventListener('ended', () => {
-        if (state.isRepeat) {
-            elements.audioPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
-            elements.audioPlayer.play().catch(err => console.warn('Playback failed:', err));
-        } else if (state.settings.autoplay) {
-            playNext();
-        }
+        player.addEventListener('timeupdate', () => {
+            // アクティブなプレイヤーのみUI更新
+            if (getActivePlayer() === player) {
+                updateProgress();
+
+                // クロスフェード自動再生ロジック
+                if (state.settings.crossfade && state.settings.autoplay && !state.isCrossfading && player.duration) {
+                    // 残り時間がクロスフェード時間以下になったら次へ
+                    const remaining = player.duration - player.currentTime;
+                    // INTROスキップ考慮（実質終了位置）
+                    if (remaining <= state.settings.crossfadeDuration && remaining > 0) {
+                        playNext(true);
+                    }
+                }
+            }
+        });
+
+        player.addEventListener('progress', () => {
+            if (getActivePlayer() === player) updateProgress();
+        });
+
+        player.addEventListener('ended', () => {
+            if (getActivePlayer() === player) {
+                if (!state.settings.crossfade || state.isCrossfading) {
+                    if (state.isRepeat) {
+                        player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+                        player.play().catch(err => console.warn('Playback failed:', err));
+                    } else if (state.settings.autoplay && !state.isCrossfading) {
+                        playNext(false);
+                    }
+                }
+            }
+        });
     });
 
     // Modals
@@ -1295,17 +1549,19 @@ function initShortcuts() {
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
+        const player = getActivePlayer();
+
         switch (e.code) {
             case 'Space':
                 e.preventDefault();
                 togglePlayPause();
                 break;
             case 'ArrowLeft':
-                const newTimeBack = elements.audioPlayer.currentTime - 5;
-                elements.audioPlayer.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, newTimeBack);
+                const newTimeBack = player.currentTime - 5;
+                player.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, newTimeBack);
                 break;
             case 'ArrowRight':
-                elements.audioPlayer.currentTime += 5;
+                player.currentTime += 5;
                 break;
             case 'ArrowUp':
                 e.preventDefault();
@@ -1346,12 +1602,18 @@ function setupVisualizer() {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioCtx.createAnalyser();
                 analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-                source = audioCtx.createMediaElementSource(elements.audioPlayer);
-                source.connect(analyser);
+                // Both players connect to the same analyser
+                const source1 = audioCtx.createMediaElementSource(elements.audioPlayer);
+                const source2 = audioCtx.createMediaElementSource(elements.audioPlayerAlt);
+
+                source1.connect(analyser); // We might need a merger if we want clean mix but analyser merge is implicitly handled if we connect multiple? 
+                // Wait, multiple sources to one destination is fine.
+                source2.connect(analyser);
+
                 analyser.connect(audioCtx.destination);
 
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
                 drawVisualizer();
             } catch (e) {
                 console.warn('Audio API setup failed (possibly CORS issues):', e);
@@ -1369,6 +1631,7 @@ function setupVisualizer() {
 
     // Check CORS
     elements.audioPlayer.crossOrigin = "anonymous";
+    elements.audioPlayerAlt.crossOrigin = "anonymous";
 }
 
 function drawVisualizer() {
