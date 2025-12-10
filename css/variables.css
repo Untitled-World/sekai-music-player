@@ -55,3 +55,42 @@
     --border-color: rgba(0, 0, 0, 0.08);
     --shadow-color: rgba(0, 0, 0, 0.1);
 }
+
+/* ユニット別ダイナミックテーマ (Unit Dynamic Themes) */
+/* 公式カラーコードを使用 */
+[data-unit-theme="Leo/need"] {
+    --accent-primary: #4455dd;
+    --accent-secondary: #6677ff;
+    --accent-gradient: linear-gradient(135deg, #4455dd 0%, #6677ff 50%, #88aaff 100%);
+}
+
+[data-unit-theme="MORE MORE JUMP！"] {
+    --accent-primary: #88dd44;
+    --accent-secondary: #a0ee66;
+    --accent-gradient: linear-gradient(135deg, #88dd44 0%, #a0ee66 50%, #c0ff88 100%);
+}
+
+[data-unit-theme="Vivid BAD SQUAD"] {
+    --accent-primary: #ee1166;
+    --accent-secondary: #ff4488;
+    --accent-gradient: linear-gradient(135deg, #ee1166 0%, #ff4488 50%, #ff88aa 100%);
+}
+
+[data-unit-theme="ワンダーランズ×ショウタイム"] {
+    --accent-primary: #ff9900;
+    --accent-secondary: #ffbb33;
+    --accent-gradient: linear-gradient(135deg, #ff9900 0%, #ffbb33 50%, #ffdd66 100%);
+}
+
+[data-unit-theme="25時、ナイトコードで。"] {
+    --accent-primary: #884499;
+    --accent-secondary: #aa66bb;
+    --accent-gradient: linear-gradient(135deg, #884499 0%, #aa66bb 50%, #cc88dd 100%);
+}
+
+[data-unit-theme="VIRTUAL SINGER"],
+[data-unit-theme="バーチャル・シンガー"] {
+    --accent-primary: #00bbdd;
+    --accent-secondary: #33ddff;
+    --accent-gradient: linear-gradient(135deg, #00bbdd 0%, #33ddff 50%, #77eeff 100%);
+}

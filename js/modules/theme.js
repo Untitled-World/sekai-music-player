@@ -29,3 +29,46 @@ function updateThemeIcon(theme) {
         label.textContent = theme === 'dark' ? 'ダークモード' : 'ライトモード';
     }
 }
+
+// ユニット別ダイナミックテーマ
+// 対応ユニット名のリスト
+const THEME_UNITS = [
+    'Leo/need',
+    'MORE MORE JUMP！',
+    'Vivid BAD SQUAD',
+    'ワンダーランズ×ショウタイム',
+    '25時、ナイトコードで。'
+];
+
+// VIRTUAL SINGER扱いのユニット名
+const VIRTUAL_SINGER_UNITS = ['VIRTUAL SINGER', 'バーチャル・シンガー'];
+
+export function applyUnitTheme(unitArray) {
+    if (!unitArray || !Array.isArray(unitArray) || unitArray.length === 0) {
+        clearUnitTheme();
+        return;
+    }
+
+    // VIRTUAL SINGER以外のユニットを抽出
+    const nonVsUnits = unitArray.filter(u =>
+        THEME_UNITS.includes(u) && !VIRTUAL_SINGER_UNITS.includes(u)
+    );
+
+    // VIRTUAL SINGERが含まれているかチェック
+    const hasVirtualSinger = unitArray.some(u => VIRTUAL_SINGER_UNITS.includes(u));
+
+    if (nonVsUnits.length === 1) {
+        // 1ユニットのみ（VIRTUAL SINGER + 1ユニット、または1ユニットのみ）
+        document.documentElement.setAttribute('data-unit-theme', nonVsUnits[0]);
+    } else if (nonVsUnits.length === 0 && hasVirtualSinger) {
+        // VIRTUAL SINGERのみ
+        document.documentElement.setAttribute('data-unit-theme', 'VIRTUAL SINGER');
+    } else {
+        // 2ユニット以上、またはマッチなし → デフォルト色
+        clearUnitTheme();
+    }
+}
+
+export function clearUnitTheme() {
+    document.documentElement.removeAttribute('data-unit-theme');
+}
