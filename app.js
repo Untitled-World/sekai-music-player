@@ -34,8 +34,7 @@ const state = {
         vocalPriority: 'sekai',
         autoplay: true,
         crossfade: false,
-        crossfadeDuration: 3,
-        visualizer: false // デフォルトOFF（バックグラウンド再生対策）
+        crossfadeDuration: 3
     },
     playbackContext: 'all',
     activePlaylistId: null,
@@ -116,22 +115,13 @@ const elements = {
     contextDeleteBtn: document.getElementById('contextDeleteBtn'),
     scrollToTopBtn: document.getElementById('scrollToTopBtn'),
     autoplayToggle: document.getElementById('autoplayToggle'),
-    visualizerToggle: document.getElementById('visualizerToggle'),
     crossfadeToggle: document.getElementById('crossfadeToggle'),
     crossfadeSlider: document.getElementById('crossfadeSlider'),
     crossfadeValue: document.getElementById('crossfadeValue'),
     crossfadeSliderContainer: document.getElementById('crossfadeSliderContainer'),
     settingVolumeSlider: document.getElementById('settingVolumeSlider'),
-    favBtn: document.getElementById('favBtn'),
-    visualizerCanvas: document.getElementById('visualizerCanvas')
+    favBtn: document.getElementById('favBtn')
 };
-
-// Visualizer Context
-let audioCtx;
-let analyser;
-let source;
-let dataArray;
-let animationId;
 
 // プレイヤーヘルパー
 function getActivePlayer() {
@@ -209,10 +199,7 @@ function loadSettings() {
         elements.autoplayToggle.checked = state.settings.autoplay;
         updateAutoplayLabel();
     }
-    if (elements.visualizerToggle) {
-        elements.visualizerToggle.checked = state.settings.visualizer;
-        updateVisualizerLabel();
-    }
+
     if (elements.crossfadeToggle) {
         elements.crossfadeToggle.checked = state.settings.crossfade;
         updateCrossfadeLabel();
@@ -233,12 +220,7 @@ function updateAutoplayLabel() {
     }
 }
 
-function updateVisualizerLabel() {
-    const label = elements.visualizerToggle?.parentElement?.querySelector('.toggle-label');
-    if (label) {
-        label.textContent = state.settings.visualizer ? 'ON' : 'OFF';
-    }
-}
+
 
 function updateCrossfadeLabel() {
     const label = elements.crossfadeToggle?.parentElement?.querySelector('.toggle-label');
@@ -390,7 +372,6 @@ function initTheme() {
     updateThemeIcon(savedTheme);
     loadFavorites();
     initShortcuts();
-    setupVisualizer();
 }
 
 // お気に入り管理
@@ -1212,32 +1193,7 @@ function initEventListeners() {
         filterMusic();
     });
 
-    if (elements.visualizerToggle) {
-        elements.visualizerToggle.addEventListener('change', (e) => {
-            state.settings.visualizer = e.target.checked;
-            updateVisualizerLabel();
-            saveSettings();
 
-            if (state.settings.visualizer) {
-                setupVisualizer();
-            } else {
-                // OFFにする場合：AudioContextを閉じて通常再生に戻す
-                if (audioCtx && audioCtx.state !== 'closed') {
-                    audioCtx.close().then(() => {
-                        audioCtx = null;
-                        analyser = null;
-                        source = null;
-                        // キャンバスをクリア
-                        const canvas = elements.visualizerCanvas;
-                        if (canvas) {
-                            const ctx = canvas.getContext('2d');
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        }
-                    });
-                }
-            }
-        });
-    }
 
     // ソートトリガー
     if (elements.sortToggleBtn) {
@@ -1584,89 +1540,7 @@ function initShortcuts() {
 }
 
 // Audio Visualizer
-function setupVisualizer() {
-    if (!elements.visualizerCanvas) return;
 
-    // Resize canvas
-    function resizeCanvas() {
-        elements.visualizerCanvas.width = window.innerWidth;
-        elements.visualizerCanvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    // Init Audio Context on first interaction
-    const initAudioContext = () => {
-        if (!audioCtx) {
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256;
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-                // Both players connect to the same analyser
-                const source1 = audioCtx.createMediaElementSource(elements.audioPlayer);
-                const source2 = audioCtx.createMediaElementSource(elements.audioPlayerAlt);
-
-                source1.connect(analyser); // We might need a merger if we want clean mix but analyser merge is implicitly handled if we connect multiple? 
-                // Wait, multiple sources to one destination is fine.
-                source2.connect(analyser);
-
-                analyser.connect(audioCtx.destination);
-
-                drawVisualizer();
-            } catch (e) {
-                console.warn('Audio API setup failed (possibly CORS issues):', e);
-            }
-        } else if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-
-        document.removeEventListener('click', initAudioContext);
-        document.removeEventListener('keydown', initAudioContext);
-    };
-
-    document.addEventListener('click', initAudioContext);
-    document.addEventListener('keydown', initAudioContext);
-
-    // Check CORS
-    elements.audioPlayer.crossOrigin = "anonymous";
-    elements.audioPlayerAlt.crossOrigin = "anonymous";
-}
-
-function drawVisualizer() {
-    animationId = requestAnimationFrame(drawVisualizer);
-
-    if (!analyser || !dataArray) return;
-
-    analyser.getByteFrequencyData(dataArray);
-
-    const canvas = elements.visualizerCanvas;
-    const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
-
-    ctx.clearRect(0, 0, width, height);
-
-    // Draw settings
-    const barWidth = (width / dataArray.length) * 2.5;
-    let barHeight;
-    let x = 0;
-
-    // Bottom aligned bars
-    for (let i = 0; i < dataArray.length; i++) {
-        barHeight = dataArray[i] * (height / 500); // Scale factor
-
-        const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
-        gradient.addColorStop(0, 'rgba(108, 92, 231, 0.5)'); // Accent Primary
-        gradient.addColorStop(1, 'rgba(253, 121, 168, 0.1)'); // Pinkish
-
-        ctx.fillStyle = gradient;
-        ctx.fillRect(x, height - barHeight, barWidth, barHeight);
-
-        x += barWidth + 1;
-    }
-}
 
 // 初期化
 async function init() {
