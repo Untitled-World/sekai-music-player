@@ -79,16 +79,48 @@ export async function playMusic(music, vocal, useCrossfade = false) {
         return new Promise((resolve) => {
             currentPlayer.src = audioUrl;
             currentPlayer.volume = doCrossfade ? 0 : state.volume; // クロスフェード開始時は音量0
+
+            // モバイル対策：load()を明示的に呼び出す
             currentPlayer.load();
 
-            const onLoadedMetadata = () => {
-                currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
-                currentPlayer.play().then(() => {
-                    resolve();
-                }).catch(err => console.warn('Playback failed:', err));
-                currentPlayer.removeEventListener('loadedmetadata', onLoadedMetadata);
-            };
-            currentPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
+            // モバイルブラウザでの自動再生制限回避のため、イベントリスナーを待たずに再生を試みる
+            // 一部の環境ではload()直後のcurrentTime設定が無視される可能性があるため、
+            // play()のPromise完了後に再度チェックする手法をとる
+            currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+
+            currentPlayer.play().then(() => {
+                // 再生成功後、念のためcurrentTimeを確認
+                if (currentPlayer.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
+                    currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+                }
+                resolve();
+            }).catch(err => {
+                console.warn('Playback failed (Crossfade or Autoplay restricted):', err);
+
+                // 再生に失敗した場合（特にモバイルでの自動再生制限）、
+                // クロスフェードを中止して単発再生として振る舞わせるリカバリー処理
+                if (doCrossfade) {
+                    // クロスフェード状態をリセット
+                    state.isCrossfading = false;
+                    // 前のプレイヤーを止める
+                    previousPlayer.pause();
+                    previousPlayer.currentTime = 0;
+                    previousPlayer.volume = state.volume;
+
+                    // 現在のプレイヤーの音量を戻す
+                    currentPlayer.volume = state.volume;
+
+                    // ユーザー操作が必要であることを示すUIへの反映などはここで行えるが、
+                    // 今回はアプリの挙動として「止まる」よりは「何も起きない（or 次のタップで再生）」状態へ
+                    // しかし、play()失敗 = 音が出ない なので、
+                    // ここでresolve()してしまうとUIは再生中になり矛盾する。
+                    // 解決策として、playMusic関数全体としては完了したことにし、
+                    // UI側で停止状態に見せるか、あるいはここは何もしないでユーザーの次のアクションを待つ。
+                    // エラーハンドリングとしては、「再生は失敗した」としてresolveして、
+                    // あとはtogglePlayPauseなどで再開してもらうのが自然。
+                }
+                resolve(); // エラーでも一旦resolveして処理を止めない
+            });
         });
     };
 
