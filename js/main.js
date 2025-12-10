@@ -276,7 +276,23 @@ function initEventListeners() {
     });
 
     // Progress bar
-    if (elements.progressBar) elements.progressBar.addEventListener('click', seekTo);
+    if (elements.progressBar) {
+        elements.progressBar.addEventListener('click', seekTo);
+        // モバイル用タッチイベント
+        elements.progressBar.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // スクロール防止
+            const touch = e.touches[0];
+            const rect = elements.progressBar.getBoundingClientRect();
+            // 擬似的なイベントオブジェクトを作成してseekToに渡す
+            seekTo({ clientX: touch.clientX });
+        }, { passive: false });
+
+        elements.progressBar.addEventListener('touchmove', (e) => {
+            if (e.cancelable) e.preventDefault();
+            const touch = e.touches[0];
+            seekTo({ clientX: touch.clientX });
+        }, { passive: false });
+    }
 
     // Audio events (Bind to both players)
     [elements.audioPlayer, elements.audioPlayerAlt].forEach(player => {
