@@ -280,6 +280,10 @@
 
 /* モバイル用プレイヤーバー調整 (Mobile) */
 @media (max-width: 768px) {
+    .now-playing-bar {
+        height: auto;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
 
     /* Player Bar Layout - Flexbox with Flattened Children */
     .now-playing-content {
@@ -287,9 +291,12 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        padding: 30px 16px;
+        padding: 30px 16px 50px 16px;
+        /* 下部余白を大きく確保（プログレスバー操作用） */
         gap: 8px;
     }
+
+
 
     .track-info,
     .player-controls,
