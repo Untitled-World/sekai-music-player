@@ -258,21 +258,55 @@ export function toggleMute() {
     updateVolumeIcon();
 }
 
-export function seekTo(e) {
+import { renderProgress } from './ui.js';
+
+function calculateSeekValues(clientX) {
     const rect = elements.progressBar.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
+    const percent = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
 
     const player = getActivePlayer();
     const { duration } = player;
-    if (isNaN(duration)) return;
+    if (isNaN(duration)) return { percent: 0, seekTime: 0 };
 
     const adjustedDuration = Math.max(0, duration - CONFIG.INTRO_SKIP_SECONDS);
-    const seekTimeAdjusted = percent * adjustedDuration;
-
-    const actualSeekTime = seekTimeAdjusted + CONFIG.INTRO_SKIP_SECONDS;
+    const seekTimeAdjusted = percent * adjustedDuration; // 0ベースの時間
+    const actualSeekTime = seekTimeAdjusted + CONFIG.INTRO_SKIP_SECONDS; // 実際のcurrentTime
     const finalSeekTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, actualSeekTime);
 
-    elements.audioPlayer.currentTime = finalSeekTime;
+    return { percent: percent * 100, seekTime: seekTimeAdjusted, actualSeekTime: finalSeekTime };
+}
+
+export function seekTo(e) {
+    // クリック等の単発シーク用
+    const clientX = e.clientX;
+    const { actualSeekTime } = calculateSeekValues(clientX);
+    elements.audioPlayer.currentTime = actualSeekTime;
+}
+
+export function handleSeekStart() {
+    state.isDragging = true;
+}
+
+export function handleSeekMove(e) {
+    if (!state.isDragging) return;
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const { percent, seekTime } = calculateSeekValues(clientX);
+
+    // UIのみ更新
+    renderProgress(percent, seekTime);
+}
+
+export function handleSeekEnd(e) {
+    if (!state.isDragging && e.type !== 'click') return;
+    state.isDragging = false;
+
+    const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+    const { actualSeekTime } = calculateSeekValues(clientX);
+
+    // 最終位置へシーク
+    const player = getActivePlayer();
+    player.currentTime = actualSeekTime;
 }
 
 export function updateBuffered() {

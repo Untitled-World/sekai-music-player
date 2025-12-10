@@ -232,6 +232,8 @@ export function updatePlayPauseButton() {
 }
 
 export function updateProgress() {
+    if (state.isDragging) return; // ドラッグ中は自動更新しない
+
     const player = getActivePlayer();
     if (!player) return;
 
@@ -242,13 +244,16 @@ export function updateProgress() {
     const adjustedDuration = Math.max(0, duration - CONFIG.INTRO_SKIP_SECONDS);
 
     const percent = adjustedDuration > 0 ? (adjustedCurrent / adjustedDuration) * 100 : 0;
-    const clampedPercent = Math.min(100, Math.max(0, percent));
 
+    renderProgress(percent, adjustedCurrent);
+    elements.durationTime.textContent = formatTime(adjustedDuration);
+}
+
+export function renderProgress(percent, currentTimeVal) {
+    const clampedPercent = Math.min(100, Math.max(0, percent));
     elements.progressFill.style.width = `${clampedPercent}%`;
     elements.progressHandle.style.left = `${clampedPercent}%`;
-
-    elements.currentTime.textContent = formatTime(adjustedCurrent);
-    elements.durationTime.textContent = formatTime(adjustedDuration);
+    elements.currentTime.textContent = formatTime(currentTimeVal);
 }
 
 export function updateVolumeIcon() {

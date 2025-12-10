@@ -15,6 +15,7 @@ export const state = {
     isRepeat: false,
     isShuffle: false,
     volume: 0.8,
+    isDragging: false,
     // プレイリスト＆設定の状態
     savedPlaylists: [],
     settings: {
