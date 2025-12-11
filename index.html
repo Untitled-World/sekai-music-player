@@ -173,6 +173,15 @@
                         <svg viewBox="0 0 24 24" fill="currentColor" class="pause-icon" style="display:none;">
                             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                         </svg>
+                        <svg viewBox="0 0 24 24" class="loading-icon" style="display:none;">
+                            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"
+                                opacity="0.3" />
+                            <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                d="M12 2a10 10 0 0 1 10 10">
+                                <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12"
+                                    dur="1s" repeatCount="indefinite" />
+                            </path>
+                        </svg>
                     </button>
                     <button class="control-btn" id="nextBtn" title="次の曲">
                         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -307,6 +316,30 @@
                         <input type="range" id="crossfadeSlider" min="1" max="5" step="0.5" value="3"
                             class="volume-slider" style="width: 100%;">
                         <span id="crossfadeValue" style="font-size: 0.9rem; color: var(--text-secondary);">3.0秒</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">オフラインキャッシュ</label>
+                    <p class="setting-desc">楽曲データを事前にダウンロードしてオフラインでも再生可能にします。</p>
+                    <div id="cacheInfo" class="cache-info">
+                        <span id="cacheStatus">未確認</span>
+                    </div>
+                    <div id="cacheProgress" class="cache-progress" style="display: none;">
+                        <div class="cache-progress-bar">
+                            <div class="cache-progress-fill" id="cacheProgressFill"></div>
+                        </div>
+                        <span id="cacheProgressText">0 / 0</span>
+                    </div>
+                    <div class="cache-buttons" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-secondary" id="cacheJacketsBtn" style="flex: 1;">
+                            🖼️ 画像をDL
+                        </button>
+                        <button class="btn-secondary" id="cacheAudioBtn" style="flex: 1;">
+                            🎵 音声をDL
+                        </button>
+                        <button class="btn-secondary btn-small-danger" id="clearCacheBtn" style="flex-basis: 100%;">
+                            キャッシュを削除
+                        </button>
                     </div>
                 </div>
                 <div class="setting-group">

@@ -13,7 +13,7 @@ import { recordPlay } from './stats.js';
 import { applyUnitTheme } from './theme.js';
 
 // Circular dependency: UI updates need to be imported
-import { updateNowPlayingUI, updatePlayingCard, updateDynamicBackground, updatePlayPauseButton, updateProgress, updateVolumeIcon } from './ui.js';
+import { updateNowPlayingUI, updatePlayingCard, updateDynamicBackground, updatePlayPauseButton, updateProgress, updateVolumeIcon, setLoadingState } from './ui.js';
 
 export function getActivePlayer() {
     return state.activePlayerId === 'primary' ? elements.audioPlayer : elements.audioPlayerAlt;
@@ -85,6 +85,9 @@ export async function playMusic(music, vocal, useCrossfade = false) {
 
     const playNewTrack = () => {
         return new Promise((resolve) => {
+            // ローディング状態を表示
+            setLoadingState(true);
+
             currentPlayer.src = audioUrl;
             currentPlayer.volume = doCrossfade ? 0 : state.volume; // クロスフェード開始時は音量0
 
@@ -95,6 +98,9 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
 
             currentPlayer.play().then(() => {
+                // ローディング完了
+                setLoadingState(false);
+
                 // 再生成功後、念のためcurrentTimeを確認
                 if (currentPlayer.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
                     currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
@@ -102,6 +108,9 @@ export async function playMusic(music, vocal, useCrossfade = false) {
                 resolve();
             }).catch(err => {
                 console.warn('Playback failed (Crossfade or Autoplay restricted):', err);
+
+                // ローディング完了
+                setLoadingState(false);
 
                 // 再生に失敗した場合のリカバリー処理
                 if (doCrossfade) {

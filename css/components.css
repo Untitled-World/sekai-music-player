@@ -669,3 +669,51 @@
     width: 18px;
     height: 18px;
 }
+
+/* ========================================
+   キャッシュ管理 (Cache Management)
+   ======================================== */
+
+.cache-info {
+    padding: var(--spacing-sm);
+    background: var(--bg-glass);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-top: var(--spacing-sm);
+}
+
+.cache-progress {
+    margin-top: var(--spacing-sm);
+}
+
+.cache-progress-bar {
+    height: 8px;
+    background: var(--bg-glass);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    margin-bottom: var(--spacing-xs);
+}
+
+.cache-progress-fill {
+    height: 100%;
+    background: var(--accent-gradient);
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+#cacheProgressText {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.btn-small-danger {
+    background: rgba(238, 17, 102, 0.2) !important;
+    color: #ee1166 !important;
+    border: 1px solid rgba(238, 17, 102, 0.3) !important;
+}
+
+.btn-small-danger:hover {
+    background: rgba(238, 17, 102, 0.3) !important;
+}

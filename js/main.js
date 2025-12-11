@@ -13,6 +13,7 @@ import { getActivePlayer, playMusic, playNext, playPrev, togglePlayPause, toggle
 import { renderMusicGrid, filterMusic, switchToAllContext, updateStats, updateNowPlayingUI, updatePlayPauseButton, updateProgress } from './modules/ui.js';
 import { openLyricsModal, closeLyricsModal, openVocalModal, closeVocalModal, closeConfirmModal, executeConfirmCallback, showAlertModal, showConfirmModal } from './modules/modals.js';
 import { loadStats, openStatsModal, closeStatsModal, renderStatsContent } from './modules/stats.js';
+import { cacheAllJackets, cacheAllAudio, clearCache, getCacheSize, isCachingInProgress } from './modules/cache.js';
 
 // 設定管理 (Settings Management) - ここに残すか、専用モジュールにするか。今回はMainに置く。
 function loadSettings() {
@@ -255,6 +256,92 @@ function initEventListeners() {
             if (e.target === elements.confirmModal) closeConfirmModal();
         });
     }
+
+    // Cache controls
+    const cacheJacketsBtn = document.getElementById('cacheJacketsBtn');
+    const cacheAudioBtn = document.getElementById('cacheAudioBtn');
+    const clearCacheBtn = document.getElementById('clearCacheBtn');
+    const cacheProgress = document.getElementById('cacheProgress');
+    const cacheProgressFill = document.getElementById('cacheProgressFill');
+    const cacheProgressText = document.getElementById('cacheProgressText');
+    const cacheStatus = document.getElementById('cacheStatus');
+
+    const updateCacheProgress = (progress) => {
+        const percent = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+        cacheProgressFill.style.width = `${percent}%`;
+        const typeLabel = progress.type === 'jacket' ? '画像' : '音声';
+        const skippedInfo = progress.skipped > 0 ? ` (スキップ: ${progress.skipped})` : '';
+        cacheProgressText.textContent = `${typeLabel}: ${progress.current} / ${progress.total}${skippedInfo}`;
+    };
+
+    const updateCacheStatus = async () => {
+        try {
+            const size = await getCacheSize();
+            const usageMB = (size.usage / (1024 * 1024)).toFixed(1);
+            cacheStatus.textContent = `使用中: ${usageMB} MB`;
+        } catch (e) {
+            cacheStatus.textContent = '確認できません';
+        }
+    };
+
+    if (cacheJacketsBtn) {
+        cacheJacketsBtn.addEventListener('click', async () => {
+            if (isCachingInProgress()) {
+                showAlertModal('キャッシュ処理が進行中です');
+                return;
+            }
+            cacheProgress.style.display = 'block';
+            cacheJacketsBtn.disabled = true;
+            cacheAudioBtn.disabled = true;
+            try {
+                const result = await cacheAllJackets(updateCacheProgress);
+                showAlertModal(`画像のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
+            } catch (err) {
+                showAlertModal(`エラー: ${err.message}`);
+            } finally {
+                cacheProgress.style.display = 'none';
+                cacheJacketsBtn.disabled = false;
+                cacheAudioBtn.disabled = false;
+                updateCacheStatus();
+            }
+        });
+    }
+
+    if (cacheAudioBtn) {
+        cacheAudioBtn.addEventListener('click', async () => {
+            if (isCachingInProgress()) {
+                showAlertModal('キャッシュ処理が進行中です');
+                return;
+            }
+            cacheProgress.style.display = 'block';
+            cacheJacketsBtn.disabled = true;
+            cacheAudioBtn.disabled = true;
+            try {
+                const result = await cacheAllAudio(updateCacheProgress);
+                showAlertModal(`音声のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
+            } catch (err) {
+                showAlertModal(`エラー: ${err.message}`);
+            } finally {
+                cacheProgress.style.display = 'none';
+                cacheJacketsBtn.disabled = false;
+                cacheAudioBtn.disabled = false;
+                updateCacheStatus();
+            }
+        });
+    }
+
+    if (clearCacheBtn) {
+        clearCacheBtn.addEventListener('click', async () => {
+            showConfirmModal('本当にキャッシュを削除しますか？', async () => {
+                await clearCache();
+                showAlertModal('キャッシュを削除しました');
+                updateCacheStatus();
+            });
+        });
+    }
+
+    // 初回ステータス更新
+    updateCacheStatus();
 
     // Player controls
     if (elements.playPauseBtn) elements.playPauseBtn.addEventListener('click', togglePlayPause);

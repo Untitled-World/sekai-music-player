@@ -221,14 +221,26 @@ export function updateDynamicBackground(assetbundleName) {
 export function updatePlayPauseButton() {
     const playIcon = elements.playPauseBtn.querySelector('.play-icon');
     const pauseIcon = elements.playPauseBtn.querySelector('.pause-icon');
+    const loadingIcon = elements.playPauseBtn.querySelector('.loading-icon');
 
-    if (state.isPlaying) {
+    if (state.isLoading) {
+        playIcon.style.display = 'none';
+        pauseIcon.style.display = 'none';
+        loadingIcon.style.display = 'block';
+    } else if (state.isPlaying) {
         playIcon.style.display = 'none';
         pauseIcon.style.display = 'block';
+        loadingIcon.style.display = 'none';
     } else {
         playIcon.style.display = 'block';
         pauseIcon.style.display = 'none';
+        loadingIcon.style.display = 'none';
     }
+}
+
+export function setLoadingState(isLoading) {
+    state.isLoading = isLoading;
+    updatePlayPauseButton();
 }
 
 export function updateProgress() {

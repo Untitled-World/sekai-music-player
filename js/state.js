@@ -16,6 +16,7 @@ export const state = {
     isShuffle: false,
     volume: 0.8,
     isDragging: false,
+    isLoading: false, // 音声ロード中フラグ
     // プレイリスト＆設定の状態
     savedPlaylists: [],
     stats: {
