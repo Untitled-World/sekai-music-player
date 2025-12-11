@@ -19337,6 +19337,12 @@
                 "difficulty": "master",
                 "playLevel": 30,
                 "totalNotes": 937
+            },
+            {
+                "difficulty": "append",
+                "playLevel": 30,
+                "totalNotes": 1105,
+                "appendReleaseAt": "2025/12/10 11:30:00"
             }
         ],
         "lyricist": "てにをは",
@@ -32697,6 +32703,16 @@
                 "type": "セカイver.",
                 "assetbundleName": "se_0507_01",
                 "vo": "朝比奈 まふゆ、鏡音 リン、宵崎 奏、東雲 絵名、暁山 瑞希"
+            },
+            {
+                "type": "アナザーボーカルver.",
+                "assetbundleName": "an_0507_01",
+                "vo": "朝比奈 まふゆ"
+            },
+            {
+                "type": "アナザーボーカルver.",
+                "assetbundleName": "an_0507_02",
+                "vo": "鏡音 リン"
             }
         ],
         "unit": [
@@ -35108,6 +35124,11 @@
         "pronunciation": "ぼくのかみさま",
         "vocals": [
             {
+                "type": "バーチャル・シンガーver.",
+                "assetbundleName": "vs_0548_01",
+                "vo": "flower"
+            },
+            {
                 "type": "セカイver.",
                 "assetbundleName": "se_0548_01",
                 "vo": "草薙 寧々、鏡音 レン、天馬 司、鳳 えむ、神代 類"
@@ -37211,6 +37232,11 @@
                 "type": "セカイver.",
                 "assetbundleName": "se_0583_01",
                 "vo": "白石 杏、巡音 ルカ、小豆沢 こはね、東雲 彰人、青柳 冬弥"
+            },
+            {
+                "type": "アナザーボーカルver.",
+                "assetbundleName": "an_0583_01",
+                "vo": "白石 杏"
             }
         ],
         "unit": [
@@ -41154,6 +41180,70 @@
         "releaseAt": "2025/10/06 15:00:00",
         "basePoint": 116,
         "originalLink": "https://youtu.be/xADz415OHB8?si=Y50kt7fFuPboWeAr",
+        "isNewlyWrittenMusic": false,
+        "isFullLength": false,
+        "collaboration": "無し",
+        "isLimitedTimeMusic": false
+    },
+    {
+        "id": 670,
+        "assetbundleName": "jacket_s_670",
+        "title": "い〜やい〜やい〜や",
+        "pronunciation": "い〜やい〜やい〜や",
+        "vocals": [
+            {
+                "type": "バーチャル・シンガーver.",
+                "assetbundleName": "vs_0670_01",
+                "vo": "鏡音 リン、鏡音 レン"
+            },
+            {
+                "type": "セカイver.",
+                "assetbundleName": "se_0670_01",
+                "vo": "鏡音 リン、天馬 司、鳳 えむ、草薙 寧々、神代 類"
+            }
+        ],
+        "unit": [
+            "ワンダーランズ×ショウタイム"
+        ],
+        "categories": [
+            "静止画"
+        ],
+        "time": 130,
+        "currentTime": 130.4,
+        "levels": [
+            {
+                "difficulty": "easy",
+                "playLevel": 6,
+                "totalNotes": 170
+            },
+            {
+                "difficulty": "normal",
+                "playLevel": 13,
+                "totalNotes": 369
+            },
+            {
+                "difficulty": "hard",
+                "playLevel": 17,
+                "totalNotes": 568
+            },
+            {
+                "difficulty": "expert",
+                "playLevel": 24,
+                "totalNotes": 792
+            },
+            {
+                "difficulty": "master",
+                "playLevel": 27,
+                "totalNotes": 809
+            }
+        ],
+        "lyricist": "Neru & z’5",
+        "composer": "Neru & z’5",
+        "arranger": "Neru & z’5",
+        "event": "無し",
+        "releaseAt": "2025/12/15 15:00:00",
+        "basePoint": 116,
+        "originalLink": "https://www.youtube.com/watch?v=y8-6QPEes1k",
         "isNewlyWrittenMusic": false,
         "isFullLength": false,
         "collaboration": "無し",
