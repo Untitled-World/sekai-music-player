@@ -361,6 +361,27 @@
                 <button class="modal-close" id="playlistsClose">✕</button>
             </div>
             <div class="modal-body">
+                <!-- スマートプレイリスト -->
+                <div class="smart-playlists-section">
+                    <h3 class="section-title">スマートプレイリスト</h3>
+                    <div class="smart-playlists-list" id="smartPlaylistsList">
+                        <div class="smart-playlist-item" data-id="top20">
+                            <span class="smart-playlist-icon">🏆</span>
+                            <span class="smart-playlist-name">再生回数TOP20</span>
+                        </div>
+                        <div class="smart-playlist-item" data-id="recent">
+                            <span class="smart-playlist-icon">🕐</span>
+                            <span class="smart-playlist-name">最近再生した曲</span>
+                        </div>
+                        <div class="smart-playlist-item" data-id="favorites">
+                            <span class="smart-playlist-icon">❤️</span>
+                            <span class="smart-playlist-name">お気に入り</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- カスタムプレイリスト -->
+                <h3 class="section-title" style="margin-top: 16px;">カスタムプレイリスト</h3>
                 <div class="playlist-create-section">
                     <input type="text" id="newPlaylistName" placeholder="新しいプレイリスト名" class="input-text">
                     <input type="text" id="newPlaylistIds" placeholder="IDリスト (カンマ区切り・任意)" class="input-text"

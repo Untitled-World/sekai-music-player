@@ -8,7 +8,7 @@ import { elements } from './elements.js';
 // モジュール
 import { initTheme, toggleTheme } from './modules/theme.js';
 import { loadFavorites, toggleFavorite } from './modules/favorites.js';
-import { loadPlaylists, savePlaylists, createPlaylist, exportPlaylistIds, deletePlaylist, parseIdString, switchToPlaylistContext, renderPlaylistsList, openAddToPlaylistModal, closeAddToPlaylistModal, closePlaylistsModal } from './modules/playlist.js';
+import { loadPlaylists, savePlaylists, createPlaylist, exportPlaylistIds, deletePlaylist, parseIdString, switchToPlaylistContext, renderPlaylistsList, openAddToPlaylistModal, closeAddToPlaylistModal, closePlaylistsModal, playSmartPlaylist } from './modules/playlist.js';
 import { getActivePlayer, playMusic, playNext, playPrev, togglePlayPause, toggleRepeat, toggleShuffle, setVolume, toggleMute, seekTo, handleSeekStart, handleSeekMove, handleSeekEnd, updateBuffered, getPreferredVocal } from './modules/player.js';
 import { renderMusicGrid, filterMusic, switchToAllContext, updateStats, updateNowPlayingUI, updatePlayPauseButton, updateProgress } from './modules/ui.js';
 import { openLyricsModal, closeLyricsModal, openVocalModal, closeVocalModal, closeConfirmModal, executeConfirmCallback, showAlertModal, showConfirmModal } from './modules/modals.js';
@@ -210,6 +210,13 @@ function initEventListeners() {
             if (e.target === elements.playlistsModal) closePlaylistsModal();
         });
     }
+
+    // スマートプレイリスト
+    document.querySelectorAll('.smart-playlist-item').forEach(item => {
+        item.addEventListener('click', () => {
+            playSmartPlaylist(item.dataset.id);
+        });
+    });
     if (elements.createPlaylistBtn) {
         elements.createPlaylistBtn.addEventListener('click', () => {
             let name = elements.newPlaylistName.value.trim();

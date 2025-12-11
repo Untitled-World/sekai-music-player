@@ -212,3 +212,76 @@ export function closePlaylistsModal() {
     }
     elements.playlistsModal.classList.remove('visible');
 }
+
+// ========================================
+// スマートプレイリスト (Smart Playlists)
+// ========================================
+
+// スマートプレイリストの定義
+export const SMART_PLAYLISTS = [
+    { id: 'top20', name: '再生回数TOP20', icon: '🏆', generator: generateTop20Playlist },
+    { id: 'recent', name: '最近再生した曲', icon: '🕐', generator: generateRecentPlaylist },
+    { id: 'favorites', name: 'お気に入り', icon: '❤️', generator: generateFavoritesPlaylist }
+];
+
+// 再生回数TOP20
+function generateTop20Playlist() {
+    const playCounts = state.stats.playCounts || {};
+
+    // 再生回数でソート
+    const sorted = Object.entries(playCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([id]) => parseInt(id));
+
+    return sorted
+        .map(id => state.musicData.find(m => m.id === id))
+        .filter(Boolean);
+}
+
+// 最近再生した曲
+function generateRecentPlaylist() {
+    const history = state.stats.history || [];
+
+    return history
+        .slice(0, 20)
+        .map(id => state.musicData.find(m => m.id === parseInt(id)))
+        .filter(Boolean);
+}
+
+// お気に入り
+function generateFavoritesPlaylist() {
+    return state.favorites
+        .map(id => state.musicData.find(m => m.id === id))
+        .filter(Boolean);
+}
+
+// スマートプレイリストを再生
+export function playSmartPlaylist(smartPlaylistId) {
+    const smartPlaylist = SMART_PLAYLISTS.find(sp => sp.id === smartPlaylistId);
+    if (!smartPlaylist) return;
+
+    const tracks = smartPlaylist.generator();
+
+    if (tracks.length === 0) {
+        showAlertModal('曲がありません', 'このスマートプレイリストには曲がありません。');
+        return;
+    }
+
+    // プレイリストコンテキストを設定
+    state.playbackContext = 'playlist';
+    state.activePlaylistId = `smart:${smartPlaylistId}`;
+    state.filteredData = tracks;
+
+    renderMusicGrid();
+    elements.musicCount.textContent = `${tracks.length} 曲`;
+    elements.currentFilter.textContent = `${smartPlaylist.icon} ${smartPlaylist.name}`;
+
+    // コンテキストバーを表示
+    if (elements.contextBar) {
+        elements.contextBar.style.display = 'flex';
+        elements.contextTitle.textContent = `${smartPlaylist.icon} ${smartPlaylist.name}`;
+    }
+
+    closePlaylistsModal();
+}
