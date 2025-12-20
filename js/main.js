@@ -10,7 +10,7 @@ import { initTheme, toggleTheme } from './modules/theme.js';
 import { loadFavorites, toggleFavorite } from './modules/favorites.js';
 import { loadPlaylists, savePlaylists, createPlaylist, exportPlaylistIds, deletePlaylist, parseIdString, switchToPlaylistContext, renderPlaylistsList, openAddToPlaylistModal, closeAddToPlaylistModal, closePlaylistsModal, playSmartPlaylist } from './modules/playlist.js';
 import { getActivePlayer, playMusic, playNext, playPrev, togglePlayPause, toggleRepeat, toggleShuffle, setVolume, toggleMute, seekTo, handleSeekStart, handleSeekMove, handleSeekEnd, updateBuffered, getPreferredVocal } from './modules/player.js';
-import { renderMusicGrid, filterMusic, switchToAllContext, updateStats, updateNowPlayingUI, updatePlayPauseButton, updateProgress } from './modules/ui.js';
+import { renderMusicGrid, filterMusic, switchToAllContext, updateStats, updateNowPlayingUI, updatePlayPauseButton, updateProgress, setLoadingState } from './modules/ui.js';
 import { openLyricsModal, closeLyricsModal, openVocalModal, closeVocalModal, closeConfirmModal, executeConfirmCallback, showAlertModal, showConfirmModal } from './modules/modals.js';
 import { loadStats, openStatsModal, closeStatsModal, renderStatsContent } from './modules/stats.js';
 import { cacheAllJackets, cacheAllAudio, clearCache, getCacheSize, isCachingInProgress } from './modules/cache.js';
@@ -294,7 +294,7 @@ function initEventListeners() {
     if (cacheJacketsBtn) {
         cacheJacketsBtn.addEventListener('click', async () => {
             if (isCachingInProgress()) {
-                showAlertModal('キャッシュ処理が進行中です');
+                showAlertModal('通知', 'キャッシュ処理が進行中です');
                 return;
             }
             cacheProgress.style.display = 'block';
@@ -302,9 +302,9 @@ function initEventListeners() {
             cacheAudioBtn.disabled = true;
             try {
                 const result = await cacheAllJackets(updateCacheProgress);
-                showAlertModal(`画像のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
+                showAlertModal('完了', `画像のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
             } catch (err) {
-                showAlertModal(`エラー: ${err.message}`);
+                showAlertModal('エラー', err.message);
             } finally {
                 cacheProgress.style.display = 'none';
                 cacheJacketsBtn.disabled = false;
@@ -317,7 +317,7 @@ function initEventListeners() {
     if (cacheAudioBtn) {
         cacheAudioBtn.addEventListener('click', async () => {
             if (isCachingInProgress()) {
-                showAlertModal('キャッシュ処理が進行中です');
+                showAlertModal('通知', 'キャッシュ処理が進行中です');
                 return;
             }
             cacheProgress.style.display = 'block';
@@ -325,9 +325,9 @@ function initEventListeners() {
             cacheAudioBtn.disabled = true;
             try {
                 const result = await cacheAllAudio(updateCacheProgress);
-                showAlertModal(`音声のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
+                showAlertModal('完了', `音声のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
             } catch (err) {
-                showAlertModal(`エラー: ${err.message}`);
+                showAlertModal('エラー', err.message);
             } finally {
                 cacheProgress.style.display = 'none';
                 cacheJacketsBtn.disabled = false;
@@ -339,10 +339,22 @@ function initEventListeners() {
 
     if (clearCacheBtn) {
         clearCacheBtn.addEventListener('click', async () => {
-            showConfirmModal('本当にキャッシュを削除しますか？', async () => {
-                await clearCache();
-                showAlertModal('キャッシュを削除しました');
-                updateCacheStatus();
+            showConfirmModal('キャッシュ削除', '本当にキャッシュを削除しますか？', async () => {
+                // UIフィードバック
+                clearCacheBtn.disabled = true;
+                const originalText = clearCacheBtn.textContent;
+                clearCacheBtn.textContent = '削除中...';
+
+                try {
+                    await clearCache();
+                    showAlertModal('完了', 'キャッシュを削除しました');
+                    updateCacheStatus();
+                } catch (err) {
+                    showAlertModal('エラー', `削除に失敗しました: ${err.message}`);
+                } finally {
+                    clearCacheBtn.disabled = false;
+                    clearCacheBtn.textContent = originalText;
+                }
             });
         });
     }
@@ -414,6 +426,11 @@ function initEventListeners() {
             if (getActivePlayer() === player) {
                 updateProgress();
 
+                // イントロスキップ完了後にローディングが残っている場合は確実に解除する (Fallback)
+                if (state.isLoading && player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.5) {
+                    setLoadingState(false);
+                }
+
                 // クロスフェード自動再生
                 // 重複発火防止: isCrossfading が true になったら以降は発火しない
                 if (state.settings.crossfade && state.settings.autoplay && !state.isCrossfading && player.duration) {
@@ -454,6 +471,35 @@ function initEventListeners() {
                     // 自動再生オフ
                     state.isPlaying = false;
                     updatePlayPauseButton();
+                }
+            }
+        });
+
+        player.addEventListener('waiting', () => {
+            if (getActivePlayer() === player) setLoadingState(true);
+        });
+
+        player.addEventListener('playing', () => {
+            if (getActivePlayer() === player) {
+                // 再生が開始し、イントロスキップ位置に到達していればローディング解除
+                if (player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.5) {
+                    setLoadingState(false);
+                }
+            }
+        });
+
+        player.addEventListener('seeking', () => {
+            if (getActivePlayer() === player) setLoadingState(true);
+        });
+
+        player.addEventListener('seeked', () => {
+            if (getActivePlayer() === player) {
+                // シーク完了後、イントロスキップ済みであれば必要に応じてローディング解除
+                if (player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.5) {
+                    // 再生中なら無条件、停止中なら明示的に停止状態の時だけ解除
+                    if (!player.paused || !state.isPlaying) {
+                        setLoadingState(false);
+                    }
                 }
             }
         });

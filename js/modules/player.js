@@ -74,76 +74,82 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     }
 
     // 状態更新
+    // 重要: UI更新の前に isLoading を true にすることで、バーが表示された瞬間にローディング表示になるようにする
+    state.isLoading = true;
+    state.isPlaying = true;
     state.currentTrack = music;
     state.currentVocal = vocal;
     state.playlist = state.filteredData;
     state.currentIndex = state.playlist.findIndex(m => m.id === music.id);
 
+    // UI更新（再生開始前にバーを表示して期待感を持たせる）
+    updateNowPlayingUI();
+    updatePlayingCard();
+    elements.nowPlayingBar.classList.add('visible');
+    updateDynamicBackground(music.assetbundleName);
+    updateMediaSession(music, vocal);
+    applyUnitTheme(music.unit);
+
+    // UIに対する最終的な状態同期
+    setLoadingState(true);
+
     // 新しいプレイヤーの準備
     const currentPlayer = getActivePlayer();
-    const audioUrl = getAudioUrl(vocal.assetbundleName);
+    const audioUrl = getAudioUrl(vocal.assetbundleName) + `#t=${CONFIG.INTRO_SKIP_SECONDS}`;
 
     const playNewTrack = () => {
         return new Promise((resolve) => {
-            // ローディング状態を表示
+            // ローディング状態を確実に維持
             setLoadingState(true);
 
             currentPlayer.src = audioUrl;
             currentPlayer.volume = doCrossfade ? 0 : state.volume; // クロスフェード開始時は音量0
 
-            // モバイル対策：load()を明示的に呼び出す
+            // モバイルブラウザでの自動再生制限回避のため、明示的にloadを呼んでからplayを試みる
             currentPlayer.load();
 
-            // モバイルブラウザでの自動再生制限回避のため、イベントリスナーを待たずに再生を試みる
+            // メディアフラグメント (#t=) が効かない、または遅いブラウザへの事前設定
+            // これにより、main.js のイベントリスナーが正しい位置で判定できる
             currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
 
-            currentPlayer.play().then(() => {
-                // ローディング完了
-                setLoadingState(false);
-
-                // 再生成功後、念のためcurrentTimeを確認
-                if (currentPlayer.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
-                    currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+            // フォールバック: 万が一 main.js のイベントが発火しない場合に備え、
+            // 実際に音がなり始めたら確実にローディングを解除する
+            const onPlayingFallback = () => {
+                if (currentPlayer.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 1.0) {
+                    setLoadingState(false);
+                    currentPlayer.removeEventListener('playing', onPlayingFallback);
                 }
+            };
+            currentPlayer.addEventListener('playing', onPlayingFallback);
+
+            currentPlayer.play().then(() => {
+                // ローディング解除は main.js の 'playing' イベント（9秒チェック付き）で行われるためここでは何もしない
+                // これにより、イントロスキップが完了して実際に音が鳴り出すまで Loading 表示が継続される
                 resolve();
             }).catch(err => {
                 console.warn('Playback failed (Crossfade or Autoplay restricted):', err);
+                currentPlayer.removeEventListener('playing', onPlayingFallback);
 
-                // ローディング完了
+                // 失敗時はローディング解除
                 setLoadingState(false);
 
                 // 再生に失敗した場合のリカバリー処理
                 if (doCrossfade) {
-                    // クロスフェード状態をリセット
                     state.isCrossfading = false;
-                    // 前のプレイヤーを止める
                     previousPlayer.pause();
                     previousPlayer.currentTime = 0;
                     previousPlayer.volume = state.volume;
-
-                    // 現在のプレイヤーの音量を戻す
                     currentPlayer.volume = state.volume;
                 }
-
-                // 再生失敗時は isPlaying を false にする
+                // 再生失敗時は状態を戻す
                 state.isPlaying = false;
                 updatePlayPauseButton();
-
                 resolve();
             });
         });
     };
 
     await playNewTrack();
-
-    updateNowPlayingUI();
-    updatePlayingCard();
-    elements.nowPlayingBar.classList.add('visible');
-    updateDynamicBackground(music.assetbundleName);
-    updateMediaSession(music, vocal);
-
-    // ユニット別ダイナミックテーマを適用
-    applyUnitTheme(music.unit);
 
     // 再生開始記録（クロスフェードを含むすべての再生で記録）
     recordPlay(music.id);
@@ -152,8 +158,7 @@ export async function playMusic(music, vocal, useCrossfade = false) {
         performCrossfade(previousPlayer, currentPlayer);
     } else {
         previousPlayer.currentTime = 0;
-        state.isPlaying = true;
-        updatePlayPauseButton();
+        // 注意: updatePlayPauseButton 等の最終同期はイベント経由で行われる
     }
 }
 

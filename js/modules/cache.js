@@ -37,6 +37,9 @@ export async function cacheAllJackets(onProgress) {
     }
 
     isCaching = true;
+    if (!('caches' in window)) {
+        throw new Error('オフラインキャッシュ機能はこの環境（HTTPSまたはlocalhost以外）では利用できません');
+    }
     const cache = await caches.open(CACHE_NAME);
     const jacketUrls = [...new Set(state.musicData.map(m => getJacketUrl(m.assetbundleName)))];
 
@@ -60,6 +63,11 @@ export async function cacheAllJackets(onProgress) {
 
         cacheProgress.current = i + 1;
         if (onProgress) onProgress(cacheProgress);
+
+        // UIフリーズ防止のために定期的に処理を譲る
+        if (i % 20 === 0) {
+            await new Promise(r => setTimeout(r, 0));
+        }
     }
 
     isCaching = false;
@@ -73,6 +81,9 @@ export async function cacheAllAudio(onProgress) {
     }
 
     isCaching = true;
+    if (!('caches' in window)) {
+        throw new Error('オフラインキャッシュ機能はこの環境（HTTPSまたはlocalhost以外）では利用できません');
+    }
     const cache = await caches.open(CACHE_NAME);
 
     // すべてのボーカルバリエーションのURLを収集
@@ -106,6 +117,11 @@ export async function cacheAllAudio(onProgress) {
 
         cacheProgress.current = i + 1;
         if (onProgress) onProgress(cacheProgress);
+
+        // UIフリーズ防止のために定期的に処理を譲る
+        if (i % 20 === 0) {
+            await new Promise(r => setTimeout(r, 0));
+        }
     }
 
     isCaching = false;
@@ -134,6 +150,11 @@ export async function cacheAll(onProgress) {
 
 // キャッシュをクリア
 export async function clearCache() {
+    if (!('caches' in window)) {
+        // キャッシュAPIがない場合は何もしない（あるいはエラーを投げる）
+        // ここではエラーとして通知する
+        throw new Error('オフラインキャッシュ機能はこの環境では利用できません');
+    }
     await caches.delete(CACHE_NAME);
 }
 
@@ -152,6 +173,7 @@ export async function getCacheSize() {
 // キャッシュ済みファイル数を取得
 export async function getCachedCount() {
     try {
+        if (!('caches' in window)) return { jackets: 0, audio: 0, total: 0 };
         const cache = await caches.open(CACHE_NAME);
         const keys = await cache.keys();
 
