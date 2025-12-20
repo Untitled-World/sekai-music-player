@@ -22,6 +22,8 @@ function loadSettings() {
     if (saved) {
         state.settings = { ...state.settings, ...JSON.parse(saved) };
     }
+    // player.js との同期
+    localStorage.setItem('vocal_priority', state.settings.vocalPriority || 'sekai');
     if (elements.vocalPrioritySelect) {
         elements.vocalPrioritySelect.value = state.settings.vocalPriority;
     }
@@ -562,6 +564,16 @@ function initEventListeners() {
         elements.autoplayToggle.addEventListener('change', (e) => {
             state.settings.autoplay = e.target.checked;
             updateAutoplayLabel();
+            saveSettings();
+        });
+    }
+
+    // ボーカル優先設定
+    if (elements.vocalPrioritySelect) {
+        elements.vocalPrioritySelect.addEventListener('change', (e) => {
+            state.settings.vocalPriority = e.target.value;
+            // player.jsが直接参照するキーにも保存して整合性を保つ
+            localStorage.setItem('vocal_priority', e.target.value);
             saveSettings();
         });
     }
