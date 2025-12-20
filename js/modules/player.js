@@ -1,6 +1,7 @@
 /**
  * プレイヤー機能 (Player)
  */
+console.info('[Player] Initializing...');
 import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { elements } from '../elements.js';
@@ -79,6 +80,9 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     state.playlist = state.filteredData;
     state.currentIndex = state.playlist.findIndex(m => m.id === music.id);
 
+    // 次の数曲をバックグラウンドでプリロードしておく
+    triggerPreload();
+
     // UI更新
     updateNowPlayingUI();
     updatePlayingCard();
@@ -153,9 +157,6 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             previousPlayer.currentTime = 0;
         }
     }
-
-    // 次の数曲をバックグラウンドでプリロードしておく
-    triggerPreload();
 }
 
 function triggerPreload() {
@@ -164,10 +165,12 @@ function triggerPreload() {
     const nextUrls = [];
     const preloadCount = 10;
 
-    for (let i = 1; i <= preloadCount; i++) {
+    // 現在の曲(i=0)も含めて10曲分をプリロード対象にする
+    for (let i = 0; i < preloadCount; i++) {
         const nextIdx = (state.currentIndex + i) % state.playlist.length;
-        // ループして自分に戻ってきたら終了
-        if (nextIdx === state.currentIndex) break;
+
+        // 2回目以降で自分に戻ってきたら終了
+        if (i > 0 && nextIdx === state.currentIndex) break;
 
         const nextMusic = state.playlist[nextIdx];
         if (nextMusic) {
@@ -179,6 +182,7 @@ function triggerPreload() {
     }
 
     if (nextUrls.length > 0) {
+        console.log(`[Player] Triggering preload for ${nextUrls.length} tracks (including current)`);
         preloadTracks(nextUrls);
     }
 }

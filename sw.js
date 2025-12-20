@@ -1,6 +1,6 @@
-console.info('[SW v17.0] Jacket Cache Protection - READY');
+console.info('[SW v18.0] Cache Protection - READY');
 
-const CACHE_NAME = 'sekai-app-cache-v17';
+const CACHE_NAME = 'sekai-app-cache-v18';
 
 self.addEventListener('install', (e) => {
     self.skipWaiting();
@@ -56,11 +56,20 @@ self.addEventListener('fetch', (e) => {
 
     // 音声ファイルのキャッシュ対応 (Cache-First)
     if (url.hostname === 'storage.sekai.best' && url.pathname.endsWith('.mp3')) {
-        e.respondWith(
-            caches.match(e.request).then((cached) => {
-                return cached || fetch(e.request);
-            })
-        );
+        const cleanUrl = url.origin + url.pathname;
+        e.respondWith((async () => {
+            const cache = await caches.open(CACHE_NAME);
+            const cached = await cache.match(cleanUrl, { ignoreSearch: true });
+
+            if (cached) {
+                return cached;
+            }
+
+            // キャッシュがない場合：
+            // fetch(e.request) を直接返すことで、ブラウザのネイティブな Range リクエスト処理に任せる
+            // これにより SW 内での fetch 失敗 (ERR_FAILED) と二重リクエストを防止する
+            return fetch(e.request);
+        })());
         return;
     }
 

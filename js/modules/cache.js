@@ -2,11 +2,12 @@
  * キャッシュ管理 (Cache Management)
  * 画像・音声ファイルの事前ダウンロード機能
  */
+console.info('[Cache] Initializing...');
 import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { getAudioUrl, getJacketUrl } from '../utils.js';
 
-const CACHE_NAME = 'sekai-app-cache-v17';
+const CACHE_NAME = 'sekai-app-cache-v18';
 
 // キャッシュ状態
 let isCaching = false;
@@ -106,18 +107,23 @@ export async function cacheAllAudio(onProgress) {
     for (let i = 0; i < uniqueUrls.length; i++) {
         const url = uniqueUrls[i];
 
-        // キャッシュ済みならスキップ
-        if (await isUrlCached(cache, url)) {
+        // キャッシュ済み、または現在プリロード中ならスキップ
+        if (activePreloads.has(url) || await isUrlCached(cache, url)) {
             cacheProgress.skipped++;
         } else {
             try {
-                const response = await fetch(url);
-                if (response.ok) {
+                activePreloads.add(url);
+                const response = await fetch(url, { mode: 'cors' });
+                if (response.status === 200) {
                     await cache.put(url, response);
                     cacheProgress.cached++;
+                } else {
+                    console.warn(`[Cache] Skipped caching (status ${response.status}): ${url}`);
                 }
             } catch (err) {
                 console.warn(`Failed to cache audio: ${url}`, err);
+            } finally {
+                activePreloads.delete(url);
             }
         }
 
@@ -138,20 +144,32 @@ export async function cacheAllAudio(onProgress) {
 export async function preloadTracks(urls) {
     if (!('caches' in window) || !urls || urls.length === 0) return;
 
+    console.log(`[Cache] Preloading ${urls.length} tracks...`);
+
     try {
         const cache = await caches.open(CACHE_NAME);
         for (const url of urls) {
             // すでにキャッシュ済み、または現在ロード中の場合はスキップ
             if (activePreloads.has(url)) continue;
-            if (await isUrlCached(cache, url)) continue;
+
+            const isCached = await isUrlCached(cache, url);
+            if (isCached) {
+                console.log(`[Cache] Already cached, skipping: ${url}`);
+                continue;
+            }
 
             activePreloads.add(url);
-            fetch(url).then(async (response) => {
-                if (response.ok) {
+            console.log(`[Cache] Fetching: ${url}`);
+
+            fetch(url, { mode: 'cors' }).then(async (response) => {
+                if (response.status === 200) {
                     await cache.put(url, response);
+                    console.log(`[Cache] Successfully cached: ${url}`);
+                } else {
+                    console.warn(`[Cache] Skipped caching (status ${response.status}): ${url}`);
                 }
-            }).catch(() => {
-                // サイレントに無視
+            }).catch((err) => {
+                console.error(`[Cache] Fetch failed for ${url}:`, err);
             }).finally(() => {
                 activePreloads.delete(url);
             });

@@ -1,6 +1,7 @@
 /**
  * SEKAI Music Player - メインエントリポイント (Main Entry Point)
  */
+console.info('[Main] Initializing...');
 import { CONFIG } from './config.js';
 import { state } from './state.js';
 import { elements } from './elements.js';
