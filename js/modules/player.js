@@ -477,6 +477,11 @@ export function updateMediaSession(music, vocal) {
             ]
         });
 
+        // iOS Safari PWAでのバックグラウンド再生不具合（無音、操作不能）を回避するため、
+        // カスタムアクションハンドラーを削除し、ブラウザ（OS）標準のメディア制御に委ねるアプローチに変更。
+        // これにより、User Activation制約などの問題を回避し、基本的な再生/停止の安定性を確保する。
+
+        /* 
         navigator.mediaSession.setActionHandler('play', () => {
             debugLog('MediaSession play action triggered');
             resumePlayback();
@@ -493,5 +498,13 @@ export function updateMediaSession(music, vocal) {
                 player.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, details.seekTime);
             }
         });
+        */
+
+        // ハンドラーを解除（念のため明示的にnullを設定してクリア）
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+        navigator.mediaSession.setActionHandler('seekto', null);
     }
 }
