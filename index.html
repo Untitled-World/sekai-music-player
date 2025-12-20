@@ -24,11 +24,44 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="manifest" href="manifest.json">
     <script>
+        // Service Worker の強制リセット（デバッグ用）
+        async function resetSW() {
+            if ('serviceWorker' in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                for (let reg of regs) await reg.unregister();
+                const names = await caches.keys();
+                for (let name of names) await caches.delete(name);
+                alert('Reset complete. Reloading...');
+                location.reload();
+            }
+        }
+
+        // 超早期登録 & 強制支配プロトコル
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('SW registered'))
-                    .catch(err => console.log('SW registration failed: ', err));
+            const isControlled = !!navigator.serviceWorker.controller;
+            console.log('SW Status:', isControlled ? 'Optimal' : 'Standard (Direct)');
+
+            // SWからの支配完了通知を受け取ったらリロード
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data && event.data.action === 'claimed') {
+                    console.info('SW: Takeover confirmed. Optimizing...');
+                    location.reload();
+                }
+            });
+
+            // 標準的な制御権移譲イベント
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                location.reload();
+            });
+
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                // バイパスされている（Optimalでない）場合、SWに支配を命令する
+                if (!isControlled) {
+                    const worker = reg.active || reg.waiting || reg.installing;
+                    if (worker) {
+                        worker.postMessage({ action: 'claim' });
+                    }
+                }
             });
         }
     </script>

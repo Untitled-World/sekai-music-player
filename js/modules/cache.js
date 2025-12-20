@@ -6,7 +6,7 @@ import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { getAudioUrl, getJacketUrl } from '../utils.js';
 
-const CACHE_NAME = 'sekai-player-assets-v1';
+const CACHE_NAME = 'sekai-app-cache-v17';
 
 // キャッシュ状態
 let isCaching = false;
@@ -53,9 +53,12 @@ export async function cacheAllJackets(onProgress) {
             cacheProgress.skipped++;
         } else {
             try {
-                const response = await fetch(url, { mode: 'no-cors' });
-                await cache.put(url, response);
-                cacheProgress.cached++;
+                // Service Worker が有効な場合、fetch するだけで SW 側が自動的にキャッシュしてくれる
+                // ここで `cache.put` を重ねて呼ぶと、二重書き込みエラー（Unexpected internal error）が発生するため避ける
+                const response = await fetch(url);
+                if (response.ok) {
+                    cacheProgress.cached++;
+                }
             } catch (err) {
                 console.warn(`Failed to cache jacket: ${url}`, err);
             }
@@ -64,9 +67,9 @@ export async function cacheAllJackets(onProgress) {
         cacheProgress.current = i + 1;
         if (onProgress) onProgress(cacheProgress);
 
-        // UIフリーズ防止のために定期的に処理を譲る
-        if (i % 20 === 0) {
-            await new Promise(r => setTimeout(r, 0));
+        // ブラウザへの負荷軽減：5件ごとに短い休憩を入れる
+        if (i % 5 === 0) {
+            await new Promise(r => setTimeout(r, 50));
         }
     }
 
@@ -107,9 +110,11 @@ export async function cacheAllAudio(onProgress) {
             cacheProgress.skipped++;
         } else {
             try {
-                const response = await fetch(url, { mode: 'no-cors' });
-                await cache.put(url, response);
-                cacheProgress.cached++;
+                const response = await fetch(url);
+                if (response.ok) {
+                    await cache.put(url, response);
+                    cacheProgress.cached++;
+                }
             } catch (err) {
                 console.warn(`Failed to cache audio: ${url}`, err);
             }
@@ -118,9 +123,9 @@ export async function cacheAllAudio(onProgress) {
         cacheProgress.current = i + 1;
         if (onProgress) onProgress(cacheProgress);
 
-        // UIフリーズ防止のために定期的に処理を譲る
-        if (i % 20 === 0) {
-            await new Promise(r => setTimeout(r, 0));
+        // ブラウザへの負荷軽減：5件ごとに短い休憩を入れる
+        if (i % 5 === 0) {
+            await new Promise(r => setTimeout(r, 50));
         }
     }
 
@@ -151,8 +156,6 @@ export async function cacheAll(onProgress) {
 // キャッシュをクリア
 export async function clearCache() {
     if (!('caches' in window)) {
-        // キャッシュAPIがない場合は何もしない（あるいはエラーを投げる）
-        // ここではエラーとして通知する
         throw new Error('オフラインキャッシュ機能はこの環境では利用できません');
     }
     await caches.delete(CACHE_NAME);

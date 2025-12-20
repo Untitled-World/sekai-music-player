@@ -200,6 +200,7 @@ export function updateNowPlayingUI() {
     const jacketUrl = getJacketUrl(state.currentTrack.assetbundleName);
     elements.playerJacketImg.src = jacketUrl;
     elements.playerJacketImg.setAttribute('referrerpolicy', 'no-referrer');
+    elements.playerJacketImg.removeAttribute('crossorigin');
     elements.playerTitle.textContent = state.currentTrack.title;
     elements.playerArtist.textContent = state.currentVocal?.vo || state.currentTrack.composer || '-';
 

@@ -6,9 +6,8 @@ import { CONFIG } from '../config.js';
 import { elements } from '../elements.js';
 import { getAudioUrl, getJacketUrl, formatTime } from '../utils.js';
 import { updateFavoriteBtnState } from './favorites.js';
-import { playMusic as playMusicFn } from './player.js'; // 自分自身を再帰呼び出しするために必要？ いや、関数名を変えれば... 
-// 修正: exportする関数名と内部関数名が同じなので、再帰呼び出しは自分自身を呼ぶ。
-import { openVocalModal } from './modals.js'; // Card listeners are in UI but playMusic calls UI
+import { playMusic as playMusicFn } from './player.js';
+import { openVocalModal } from './modals.js';
 import { recordPlay } from './stats.js';
 import { applyUnitTheme } from './theme.js';
 
@@ -67,14 +66,12 @@ export async function playMusic(music, vocal, useCrossfade = false) {
         switchActivePlayer();
     } else {
         // クロスフェードでない場合は、前のプレイヤーを即座に停止
-        // これにより2重再生を防止
         if (!previousPlayer.paused) {
             previousPlayer.pause();
         }
     }
 
     // 状態更新
-    // 重要: UI更新の前に isLoading を true にすることで、バーが表示された瞬間にローディング表示になるようにする
     state.isLoading = true;
     state.isPlaying = true;
     state.currentTrack = music;
@@ -82,7 +79,7 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     state.playlist = state.filteredData;
     state.currentIndex = state.playlist.findIndex(m => m.id === music.id);
 
-    // UI更新（再生開始前にバーを表示して期待感を持たせる）
+    // UI更新
     updateNowPlayingUI();
     updatePlayingCard();
     elements.nowPlayingBar.classList.add('visible');
@@ -102,18 +99,22 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             // ローディング状態を確実に維持
             setLoadingState(true);
 
-            currentPlayer.src = audioUrl;
-            currentPlayer.volume = doCrossfade ? 0 : state.volume; // クロスフェード開始時は音量0
+            // 同じ楽曲・ボーカルが既にセットされているか確認（絶対パスを考慮）
+            const currentSrc = (currentPlayer.src || '').split('#')[0];
+            const nextSrc = audioUrl.split('#')[0];
+            const isSameSource = currentSrc === nextSrc && currentSrc !== '';
 
-            // モバイルブラウザでの自動再生制限回避のため、明示的にloadを呼んでからplayを試みる
-            currentPlayer.load();
+            if (!isSameSource) {
+                currentPlayer.src = audioUrl;
+                currentPlayer.load();
+            }
 
-            // メディアフラグメント (#t=) が効かない、または遅いブラウザへの事前設定
-            // これにより、main.js のイベントリスナーが正しい位置で判定できる
+            currentPlayer.volume = doCrossfade ? 0 : state.volume;
+
+            // 再生位置を調整
             currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
 
-            // フォールバック: 万が一 main.js のイベントが発火しない場合に備え、
-            // 実際に音がなり始めたら確実にローディングを解除する
+            // フォールバック: 実際に音がなり始めたら確実にローディングを解除する
             const onPlayingFallback = () => {
                 if (currentPlayer.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 1.0) {
                     setLoadingState(false);
@@ -123,17 +124,12 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             currentPlayer.addEventListener('playing', onPlayingFallback);
 
             currentPlayer.play().then(() => {
-                // ローディング解除は main.js の 'playing' イベント（9秒チェック付き）で行われるためここでは何もしない
-                // これにより、イントロスキップが完了して実際に音が鳴り出すまで Loading 表示が継続される
                 resolve();
             }).catch(err => {
                 console.warn('Playback failed (Crossfade or Autoplay restricted):', err);
                 currentPlayer.removeEventListener('playing', onPlayingFallback);
-
-                // 失敗時はローディング解除
                 setLoadingState(false);
 
-                // 再生に失敗した場合のリカバリー処理
                 if (doCrossfade) {
                     state.isCrossfading = false;
                     previousPlayer.pause();
@@ -141,7 +137,7 @@ export async function playMusic(music, vocal, useCrossfade = false) {
                     previousPlayer.volume = state.volume;
                     currentPlayer.volume = state.volume;
                 }
-                // 再生失敗時は状態を戻す
+
                 state.isPlaying = false;
                 updatePlayPauseButton();
                 resolve();
@@ -151,14 +147,13 @@ export async function playMusic(music, vocal, useCrossfade = false) {
 
     await playNewTrack();
 
-    // 再生開始記録（クロスフェードを含むすべての再生で記録）
+    // 再生開始記録
     recordPlay(music.id);
 
     if (doCrossfade) {
         performCrossfade(previousPlayer, currentPlayer);
     } else {
         previousPlayer.currentTime = 0;
-        // 注意: updatePlayPauseButton 等の最終同期はイベント経由で行われる
     }
 }
 
@@ -185,7 +180,7 @@ function performCrossfade(fadeOutPlayer, fadeInPlayer) {
             clearInterval(fadeInterval);
             fadeOutPlayer.pause();
             fadeOutPlayer.currentTime = 0;
-            fadeOutPlayer.volume = state.volume; // 音量を戻しておく
+            fadeOutPlayer.volume = state.volume;
             fadeInPlayer.volume = state.volume;
             state.isCrossfading = false;
         }
@@ -295,7 +290,6 @@ function calculateSeekValues(clientX) {
 }
 
 export function seekTo(e) {
-    // クリック等の単発シーク用
     const clientX = e.clientX;
     const { actualSeekTime } = calculateSeekValues(clientX);
     elements.audioPlayer.currentTime = actualSeekTime;
@@ -311,7 +305,6 @@ export function handleSeekMove(e) {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const { percent, seekTime } = calculateSeekValues(clientX);
 
-    // UIのみ更新
     renderProgress(percent, seekTime);
 }
 
@@ -322,7 +315,6 @@ export function handleSeekEnd(e) {
     const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
     const { actualSeekTime } = calculateSeekValues(clientX);
 
-    // 最終位置へシーク
     const player = getActivePlayer();
     player.currentTime = actualSeekTime;
 }

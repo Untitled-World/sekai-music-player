@@ -1,34 +1,19 @@
-const CACHE_NAME = 'sekai-player-v2';
-const ASSETS = [
-    './',
-    './index.html',
-    './styles.css',
-    './app.js',
-    './icon.svg',
-    './music.json',
-    './song-lyrics.json'
-];
+console.info('[SW v17.0] Jacket Cache Protection - READY');
+
+const CACHE_NAME = 'sekai-app-cache-v17';
 
 self.addEventListener('install', (e) => {
-    // 新しいService Workerを即座にアクティブにする
     self.skipWaiting();
-    e.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-    );
 });
 
 self.addEventListener('activate', (e) => {
-    // 新しいSWがページをすぐに制御できるようにクライアントを制御下に置く
     e.waitUntil(
         Promise.all([
             self.clients.claim(),
-            caches.keys().then((cacheNames) => {
+            caches.keys().then((names) => {
                 return Promise.all(
-                    cacheNames.map((cache) => {
-                        if (cache !== CACHE_NAME) {
-                            console.log('Deleting old cache:', cache);
-                            return caches.delete(cache);
-                        }
+                    names.map(n => {
+                        if (n !== CACHE_NAME) return caches.delete(n);
                     })
                 );
             })
@@ -37,34 +22,55 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-    // 外部アセット（ジャケット、オーディオ）: Stale-While-Revalidate戦略
-    // キャッシュがあれば高速に表示しつつ、バックグラウンドで次回用に更新する
-    if (e.request.url.includes('storage.sekai.best')) {
+    const url = new URL(e.request.url);
+
+    // http/https 以外のスキーム（拡張機能など）は無視
+    if (!url.protocol.startsWith('http')) return;
+
+    // ジャケット画像のみ Cache First で保護
+    if (url.hostname === 'storage.sekai.best' && url.pathname.includes('/jacket/')) {
+        const normalizedUrl = url.origin + url.pathname;
+
         e.respondWith(
-            caches.match(e.request).then((cachedResponse) => {
-                const networkFetch = fetch(e.request).then((networkResponse) => {
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(e.request, networkResponse.clone());
-                    });
-                    return networkResponse;
+            caches.match(normalizedUrl, { ignoreSearch: true }).then((cached) => {
+                if (cached) return cached;
+
+                return fetch(e.request).then((response) => {
+                    if (response.status === 200 || response.status === 0) {
+                        const clone = response.clone();
+                        caches.open(CACHE_NAME).then(cache => {
+                            cache.put(normalizedUrl, clone).catch(err => {
+                                console.warn(`[SW] Cache.put error for ${normalizedUrl}`, err);
+                            });
+                        });
+                    }
+                    return response;
+                }).catch(err => {
+                    console.error(`[SW] Fetch failed for ${normalizedUrl}`, err);
+                    return new Response('Network error', { status: 408 });
                 });
-                return cachedResponse || networkFetch;
             })
         );
-    } else {
-        // ローカルアセット: Network First戦略（開発中・頻繁な更新用）
-        // オフライン時はキャッシュを使用。オンライン時は常に最新版を取得する。
-        e.respondWith(
-            fetch(e.request)
-                .then((response) => {
-                    // レスポンスは一度しか使用できないためクローンを作成する
-                    const responseClone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(e.request, responseClone);
-                    });
-                    return response;
-                })
-                .catch(() => caches.match(e.request))
-        );
+        return;
+    }
+
+    // 音声ファイルはスルー
+    if (url.hostname === 'storage.sekai.best' && url.pathname.endsWith('.mp3')) {
+        return;
+    }
+
+    // ローカルアセット (Network First)
+    e.respondWith(
+        fetch(e.request).catch(() => caches.match(e.request))
+    );
+});
+
+// ページ側からの強制支配命令を受け取る
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.action === 'claim') {
+        self.skipWaiting();
+        self.clients.claim().then(() => {
+            event.source.postMessage({ action: 'claimed' });
+        });
     }
 });

@@ -427,7 +427,8 @@ function initEventListeners() {
                 updateProgress();
 
                 // イントロスキップ完了後にローディングが残っている場合は確実に解除する (Fallback)
-                if (state.isLoading && player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.5) {
+                // 誤差や通信遅延を考慮しつつ、実際に時間が進んでいれば解除
+                if (state.isLoading && player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.2) {
                     setLoadingState(false);
                 }
 
@@ -482,6 +483,7 @@ function initEventListeners() {
         player.addEventListener('playing', () => {
             if (getActivePlayer() === player) {
                 // 再生が開始し、イントロスキップ位置に到達していればローディング解除
+                // 確実にシークが反映されるよう、ごくわずかなディレイを入れるか閾値を調整
                 if (player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.5) {
                     setLoadingState(false);
                 }
@@ -660,6 +662,8 @@ async function init() {
     initEventListeners();
     initShortcuts();
     setVolume(80);
+
+
     await Promise.all([loadMusicData(), loadLyricsData()]);
 }
 
