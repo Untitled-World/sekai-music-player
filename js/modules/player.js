@@ -145,9 +145,6 @@ export function getPreferredVocal(music) {
 
 /**
  * 楽曲を再生する
- * @param {Object} music 楽曲データ
- * @param {Object} vocal ボーカルデータ
- * @param {boolean} useCrossfade クロスフェードを使用するか
  */
 export async function playMusic(music, vocal, useCrossfade = false) {
     // 既存のプレイヤー処理
@@ -158,15 +155,11 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     const doCrossfade = useCrossfade && userCrossfade;
 
     if (doCrossfade) {
-        // クロスフェード処理
-        // 現在のプレイヤーをフェードアウト
         if (!previousPlayer.paused) {
             fadeOut(previousPlayer);
         }
-        // プレイヤーを切り替え
         switchActivePlayer();
     } else {
-        // クロスフェードでない場合は、前のプレイヤーを即座に停止
         if (!previousPlayer.paused) {
             previousPlayer.pause();
         }
@@ -180,7 +173,7 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     state.playlist = state.filteredData;
     state.currentIndex = state.playlist.findIndex(m => m.id === music.id);
 
-    // 次の数曲をバックグラウンドでプリロードしておく
+    // プリロード
     triggerPreload();
 
     // UI更新
@@ -188,13 +181,13 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     updatePlayingCard();
     elements.nowPlayingBar.classList.add('visible');
     updateDynamicBackground(music.assetbundleName);
+
+    // 重要: メディアセッションの更新をここで行う（ハンドラーは設定しない）
     updateMediaSession(music, vocal);
     applyUnitTheme(music.unit);
 
-    // UIに対する最終的な状態同期
     setLoadingState(true);
 
-    // 新しいプレイヤーの準備
     const currentPlayer = getActivePlayer();
     const targetTime = CONFIG.INTRO_SKIP_SECONDS;
     const audioUrl = getAudioUrl(vocal.assetbundleName);
@@ -207,14 +200,11 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             const isSameSource = currentSrc.includes(vocal.assetbundleName);
 
             if (!isSameSource) {
-                // メディアフラグメントを付与してバッファリングを最適化
                 currentPlayer.src = `${audioUrl}#t=${targetTime}`;
                 currentPlayer.load();
 
-                // load()直後はメタデータ読み込みを待つ
                 const onMetadata = () => {
                     currentPlayer.removeEventListener('loadedmetadata', onMetadata);
-                    // シーク位置の微調整（念のため）
                     if (currentPlayer.currentTime < targetTime) {
                         currentPlayer.currentTime = targetTime;
                     }
@@ -224,12 +214,11 @@ export async function playMusic(music, vocal, useCrossfade = false) {
                     }).catch(e => {
                         console.error("Play error:", e);
                         debugLog(`Track play error: ${e.message}`);
-                        resolve(); // エラーでも次へ進む
+                        resolve();
                     });
                 };
                 currentPlayer.addEventListener('loadedmetadata', onMetadata);
             } else {
-                // 同じソースの場合はシークして再生
                 currentPlayer.currentTime = targetTime;
                 currentPlayer.play().then(() => {
                     debugLog('Track replay succeeded');
@@ -243,10 +232,8 @@ export async function playMusic(music, vocal, useCrossfade = false) {
         });
     };
 
-    // 再生実行
     await playNewTrack();
 
-    // クロスフェードイン
     if (doCrossfade) {
         fadeIn(currentPlayer);
     } else {
@@ -254,8 +241,6 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     }
 
     setLoadingState(false);
-
-    // 再生履歴に記録
     recordPlay(music.id);
 }
 
@@ -274,7 +259,7 @@ function fadeOut(player) {
         if (step >= steps) {
             clearInterval(fadeTimer);
             player.pause();
-            player.volume = state.volume; // 次回のために戻す
+            player.volume = state.volume;
         }
     }, interval);
 }
@@ -301,7 +286,6 @@ function fadeIn(player) {
 }
 
 function triggerPreload() {
-    // 次の3曲をプリロード
     const preloadCount = 3;
     const tracksToPreload = [];
 
@@ -311,25 +295,18 @@ function triggerPreload() {
             tracksToPreload.push(state.playlist[idx]);
         }
     }
-
     preloadTracks(tracksToPreload);
 }
 
 function setupProgressTimer() {
-    // requestAnimationFrame だとバックグラウンドで停止するため setInterval を使用
-    // iOS ではバックグラウンドでの setInterval も制限される場合があるが、
-    // Media Session API と組み合わせることで動作を維持できる可能性がある
-    const intervalTime = 200; // 更新頻度
-
+    const intervalTime = 200;
     setInterval(() => {
         if (state.isPlaying) {
             const player = getActivePlayer();
             if (!player.paused) {
-                // UI更新
                 const currentTime = player.currentTime;
                 const duration = player.duration;
 
-                // Intro Skip の考慮
                 const effectiveCurrentTime = Math.max(0, currentTime - CONFIG.INTRO_SKIP_SECONDS);
                 const effectiveDuration = Math.max(0, duration - CONFIG.INTRO_SKIP_SECONDS);
 
@@ -342,12 +319,10 @@ function setupProgressTimer() {
     }, intervalTime);
 }
 
-// UI操作用（ユーザーのタップイベントから直接呼ばれることを想定）
+// UI操作用
 export function togglePlayPause() {
     const player = getActivePlayer();
     if (player.paused) {
-        // フォアグラウンド操作時はシンプルに再生
-        // iOSのUser Activation制約を回避するため、console.log等も最小限にする
         if (player.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
             player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
         }
@@ -360,59 +335,19 @@ export function togglePlayPause() {
 }
 
 /**
- * 再生を再開する（Media Session からの明示的なplayアクション用）
- * バックグラウンド再生対策: src再設定による完全リロード
+ * 再生を再開する（UI / 他モジュール連携用）
+ * 単純なラッパーに戻す
  */
 export function resumePlayback() {
-    const player = getActivePlayer();
-    debugLog(`resumePlayback called, paused: ${player.paused}`);
-
-    state.isPlaying = true;
-    updatePlayPauseButton();
-
-    const currentSrc = player.src;
-    const currentTime = player.currentTime;
-
-    // 完全なリロードを行うため、srcを一度空にしてから再設定
-    // これによりオーディオセッションが確実にリフレッシュされる
-    player.src = '';
-    player.src = currentSrc;
-
-    // ロード完了を待たずに時間をセットし再生（iOSではこれでいける場合が多い）
-    if (currentTime > CONFIG.INTRO_SKIP_SECONDS) {
-        player.currentTime = currentTime;
-    } else {
-        player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
-    }
-
-    const playPromise = player.play();
-
-    if (playPromise) {
-        playPromise.then(() => {
-            debugLog('play() succeeded (full reload)');
-            player.muted = false;
-        }).catch(err => {
-            debugLog(`play() failed: ${err.message || err}`);
-            console.warn('Playback failed:', err);
-
-            // 失敗時は状態を戻す
-            state.isPlaying = false;
-            updatePlayPauseButton();
-        });
-    }
+    togglePlayPause();
 }
 
 /**
- * 再生を停止する（Media Session からの明示的なpauseアクション用）
+ * 再生を停止する（UI / 他モジュール連携用）
+ * 単純なラッパーに戻す
  */
 export function pausePlayback() {
-    const player = getActivePlayer();
-    debugLog(`pausePlayback called, paused: ${player.paused}`);
-
-    // シンプルに停止
-    player.pause();
-    state.isPlaying = false;
-    updatePlayPauseButton();
+    togglePlayPause();
 }
 
 export function playNext(useCrossfade = false) {
@@ -575,23 +510,11 @@ export function updateMediaSession(music, vocal) {
             ]
         });
 
-        // カスタムハンドラー設定
-        // iOS Safari PWAでのバックグラウンド再生対策（src再設定ロジックと連携）
-        navigator.mediaSession.setActionHandler('play', () => {
-            debugLog('MediaSession play action triggered');
-            resumePlayback();
-        });
-        navigator.mediaSession.setActionHandler('pause', () => {
-            debugLog('MediaSession pause action triggered');
-            pausePlayback();
-        });
-        navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
-        navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
-        navigator.mediaSession.setActionHandler('seekto', (details) => {
-            if (details.seekTime) {
-                const player = getActivePlayer();
-                player.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, details.seekTime);
-            }
-        });
+        // カスタムハンドラーを全て削除し、iOS Safari標準のメディアコントロールに委ねる
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+        navigator.mediaSession.setActionHandler('seekto', null);
     }
 }
