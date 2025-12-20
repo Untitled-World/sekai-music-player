@@ -226,12 +226,13 @@ export async function cacheAll(onProgress) {
     }
 }
 
-// キャッシュをクリア
+// キャッシュをクリア（古いバージョンのキャッシュも含めてすべて削除）
 export async function clearCache() {
     if (!('caches' in window)) {
         throw new Error('オフラインキャッシュ機能はこの環境では利用できません');
     }
-    await caches.delete(CACHE_NAME);
+    const names = await caches.keys();
+    await Promise.all(names.map(name => caches.delete(name)));
 }
 
 // キャッシュサイズを取得（概算）
