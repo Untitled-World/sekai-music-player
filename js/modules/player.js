@@ -6,7 +6,6 @@ import { CONFIG } from '../config.js';
 import { elements } from '../elements.js';
 import { getAudioUrl, getJacketUrl, formatTime } from '../utils.js';
 import { updateFavoriteBtnState } from './favorites.js';
-import { playMusic as playMusicFn } from './player.js';
 import { openVocalModal } from './modals.js';
 import { recordPlay } from './stats.js';
 import { applyUnitTheme } from './theme.js';
@@ -92,56 +91,49 @@ export async function playMusic(music, vocal, useCrossfade = false) {
 
     // 新しいプレイヤーの準備
     const currentPlayer = getActivePlayer();
-    const audioUrl = getAudioUrl(vocal.assetbundleName) + `#t=${CONFIG.INTRO_SKIP_SECONDS}`;
+    const targetTime = CONFIG.INTRO_SKIP_SECONDS;
+    const audioUrl = getAudioUrl(vocal.assetbundleName);
 
     const playNewTrack = () => {
         return new Promise((resolve) => {
-            // ローディング状態を確実に維持
             setLoadingState(true);
 
-            // 同じ楽曲・ボーカルが既にセットされているか確認（絶対パスを考慮）
             const currentSrc = (currentPlayer.src || '').split('#')[0];
-            const nextSrc = audioUrl.split('#')[0];
-            const isSameSource = currentSrc === nextSrc && currentSrc !== '';
+            const isSameSource = currentSrc.includes(vocal.assetbundleName);
 
             if (!isSameSource) {
-                currentPlayer.src = audioUrl;
+                // メディアフラグメントを付与してバッファリングを最適化
+                currentPlayer.src = `${audioUrl}#t=${targetTime}`;
                 currentPlayer.load();
             }
 
-            currentPlayer.volume = doCrossfade ? 0 : state.volume;
-
-            // 再生位置を調整
-            currentPlayer.currentTime = CONFIG.INTRO_SKIP_SECONDS;
-
-            // フォールバック: 実際に音がなり始めたら確実にローディングを解除する
-            const onPlayingFallback = () => {
-                if (currentPlayer.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 1.0) {
-                    setLoadingState(false);
-                    currentPlayer.removeEventListener('playing', onPlayingFallback);
+            // メタデータロード後の処理
+            const onMetadata = () => {
+                if (currentPlayer.currentTime < targetTime - 0.5) {
+                    currentPlayer.currentTime = targetTime;
                 }
+
+                currentPlayer.play().then(() => {
+                    // 再生開始。もしシークがまだならここでも試みる
+                    if (currentPlayer.currentTime < targetTime - 0.5) {
+                        currentPlayer.currentTime = targetTime;
+                    }
+                    resolve();
+                }).catch(err => {
+                    console.warn('Playback failed:', err);
+                    state.isPlaying = false;
+                    updatePlayPauseButton();
+                    resolve();
+                });
             };
-            currentPlayer.addEventListener('playing', onPlayingFallback);
 
-            currentPlayer.play().then(() => {
-                resolve();
-            }).catch(err => {
-                console.warn('Playback failed (Crossfade or Autoplay restricted):', err);
-                currentPlayer.removeEventListener('playing', onPlayingFallback);
-                setLoadingState(false);
+            if (currentPlayer.readyState >= 1) {
+                onMetadata();
+            } else {
+                currentPlayer.addEventListener('loadedmetadata', onMetadata, { once: true });
+            }
 
-                if (doCrossfade) {
-                    state.isCrossfading = false;
-                    previousPlayer.pause();
-                    previousPlayer.currentTime = 0;
-                    previousPlayer.volume = state.volume;
-                    currentPlayer.volume = state.volume;
-                }
-
-                state.isPlaying = false;
-                updatePlayPauseButton();
-                resolve();
-            });
+            currentPlayer.volume = doCrossfade ? 0 : state.volume;
         });
     };
 
@@ -153,7 +145,12 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     if (doCrossfade) {
         performCrossfade(previousPlayer, currentPlayer);
     } else {
-        previousPlayer.currentTime = 0;
+        // 重要: プレイヤーが切り替わっていない（＝同じ）場合はリセットしてはいけない
+        // これが「再生開始直後に冒頭（無音）に戻る」原因だった
+        if (previousPlayer !== currentPlayer) {
+            previousPlayer.pause();
+            previousPlayer.currentTime = 0;
+        }
     }
 }
 

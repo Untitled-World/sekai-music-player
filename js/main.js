@@ -428,7 +428,7 @@ function initEventListeners() {
 
                 // イントロスキップ完了後にローディングが残っている場合は確実に解除する (Fallback)
                 // 誤差や通信遅延を考慮しつつ、実際に時間が進んでいれば解除
-                if (state.isLoading && player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.2) {
+                if (state.isLoading && player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.5) {
                     setLoadingState(false);
                 }
 
@@ -482,11 +482,7 @@ function initEventListeners() {
 
         player.addEventListener('playing', () => {
             if (getActivePlayer() === player) {
-                // 再生が開始し、イントロスキップ位置に到達していればローディング解除
-                // 確実にシークが反映されるよう、ごくわずかなディレイを入れるか閾値を調整
-                if (player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.5) {
-                    setLoadingState(false);
-                }
+                setLoadingState(false);
             }
         });
 
@@ -497,7 +493,7 @@ function initEventListeners() {
         player.addEventListener('seeked', () => {
             if (getActivePlayer() === player) {
                 // シーク完了後、イントロスキップ済みであれば必要に応じてローディング解除
-                if (player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 0.5) {
+                if (player.currentTime >= CONFIG.INTRO_SKIP_SECONDS - 1.0) {
                     // 再生中なら無条件、停止中なら明示的に停止状態の時だけ解除
                     if (!player.paused || !state.isPlaying) {
                         setLoadingState(false);
