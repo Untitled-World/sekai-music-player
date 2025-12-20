@@ -638,6 +638,26 @@ function initEventListeners() {
             renderStatsContent(tab.dataset.tab);
         });
     });
+
+    // PWAフォアグラウンド復帰時の状態同期
+    // バックグラウンドでは timeupdate イベントの発火頻度が低下するため、
+    // 復帰時に明示的にプログレスバーと再生状態を更新する
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            const player = getActivePlayer();
+            if (player && state.currentTrack) {
+                // プログレスバーを現在の再生位置に同期
+                updateProgress();
+
+                // 再生状態を実際のプレイヤー状態に同期
+                const actuallyPlaying = !player.paused;
+                if (state.isPlaying !== actuallyPlaying) {
+                    state.isPlaying = actuallyPlaying;
+                    updatePlayPauseButton();
+                }
+            }
+        }
+    });
 }
 
 // キーボードショートカット (Shortcuts)

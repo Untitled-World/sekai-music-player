@@ -220,12 +220,45 @@ function performCrossfade(fadeOutPlayer, fadeInPlayer) {
 export function togglePlayPause() {
     const player = getActivePlayer();
     if (player.paused) {
+        resumePlayback();
+    } else {
+        pausePlayback();
+    }
+}
+
+/**
+ * 再生を再開する（Media Session からの明示的なplayアクション用）
+ */
+export function resumePlayback() {
+    const player = getActivePlayer();
+    if (player.paused) {
         if (player.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
             player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
         }
-        player.play().catch(err => console.warn('Playback failed:', err));
-    } else {
+        // バックグラウンド再生時の確実な再生開始のため、stateを先に更新
+        state.isPlaying = true;
+        updatePlayPauseButton();
+        player.play().then(() => {
+            // 再生成功時、状態は play イベントでも更新されるが念のため確保
+            state.isPlaying = true;
+            updatePlayPauseButton();
+        }).catch(err => {
+            console.warn('Playback failed:', err);
+            state.isPlaying = false;
+            updatePlayPauseButton();
+        });
+    }
+}
+
+/**
+ * 再生を停止する（Media Session からの明示的なpauseアクション用）
+ */
+export function pausePlayback() {
+    const player = getActivePlayer();
+    if (!player.paused) {
         player.pause();
+        state.isPlaying = false;
+        updatePlayPauseButton();
     }
 }
 
@@ -384,8 +417,8 @@ export function updateMediaSession(music, vocal) {
             ]
         });
 
-        navigator.mediaSession.setActionHandler('play', () => togglePlayPause());
-        navigator.mediaSession.setActionHandler('pause', () => togglePlayPause());
+        navigator.mediaSession.setActionHandler('play', () => resumePlayback());
+        navigator.mediaSession.setActionHandler('pause', () => pausePlayback());
         navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
         navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
         navigator.mediaSession.setActionHandler('seekto', (details) => {
