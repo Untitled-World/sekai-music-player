@@ -622,11 +622,13 @@ function initShortcuts() {
                 togglePlayPause();
                 break;
             case 'ArrowLeft':
-                const newTimeBack = player.currentTime - 5;
-                player.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, newTimeBack);
+                const activePlayerLeft = getActivePlayer();
+                const newTimeBack = activePlayerLeft.currentTime - 5;
+                activePlayerLeft.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, newTimeBack);
                 break;
             case 'ArrowRight':
-                player.currentTime += 5;
+                const activePlayerRight = getActivePlayer();
+                activePlayerRight.currentTime += 5;
                 break;
             case 'ArrowUp':
                 e.preventDefault();

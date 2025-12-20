@@ -276,7 +276,7 @@ function calculateSeekValues(clientX) {
 
     const player = getActivePlayer();
     const { duration } = player;
-    if (isNaN(duration)) return { percent: 0, seekTime: 0 };
+    if (isNaN(duration) || duration === 0) return null;
 
     const adjustedDuration = Math.max(0, duration - CONFIG.INTRO_SKIP_SECONDS);
     const seekTimeAdjusted = percent * adjustedDuration; // 0ベースの時間
@@ -288,8 +288,11 @@ function calculateSeekValues(clientX) {
 
 export function seekTo(e) {
     const clientX = e.clientX;
-    const { actualSeekTime } = calculateSeekValues(clientX);
-    elements.audioPlayer.currentTime = actualSeekTime;
+    const values = calculateSeekValues(clientX);
+    if (!values) return;
+
+    const player = getActivePlayer();
+    player.currentTime = values.actualSeekTime;
 }
 
 export function handleSeekStart() {
@@ -300,9 +303,10 @@ export function handleSeekMove(e) {
     if (!state.isDragging) return;
 
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const { percent, seekTime } = calculateSeekValues(clientX);
+    const values = calculateSeekValues(clientX);
+    if (!values) return;
 
-    renderProgress(percent, seekTime);
+    renderProgress(values.percent, values.seekTime);
 }
 
 export function handleSeekEnd(e) {
@@ -310,10 +314,11 @@ export function handleSeekEnd(e) {
     state.isDragging = false;
 
     const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-    const { actualSeekTime } = calculateSeekValues(clientX);
+    const values = calculateSeekValues(clientX);
+    if (!values) return;
 
     const player = getActivePlayer();
-    player.currentTime = actualSeekTime;
+    player.currentTime = values.actualSeekTime;
 }
 
 export function updateBuffered() {
@@ -352,7 +357,8 @@ export function updateMediaSession(music, vocal) {
         navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
         navigator.mediaSession.setActionHandler('seekto', (details) => {
             if (details.seekTime) {
-                elements.audioPlayer.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, details.seekTime);
+                const player = getActivePlayer();
+                player.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, details.seekTime);
             }
         });
     }
