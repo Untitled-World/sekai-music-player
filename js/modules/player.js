@@ -271,11 +271,25 @@ export function togglePlayPause() {
 
 /**
  * 再生を再開する（Media Session からの明示的なplayアクション用）
- * バックグラウンド再生対策を含む
+ * バックグラウンド再生対策: 擬似停止からの復帰
  */
 export function resumePlayback() {
     const player = getActivePlayer();
+    debugLog(`resumePlayback called, paused: ${player.paused}`);
 
+    // UI表示更新
+    state.isPlaying = true;
+    updatePlayPauseButton();
+
+    // 擬似停止（ミュート再生中）からの復帰の場合
+    if (!player.paused && player.muted) {
+        debugLog('Resuming from silent pause');
+        player.muted = false;
+        if (player.volume !== state.volume) player.volume = state.volume;
+        return;
+    }
+
+    // 本当に停止している場合の復帰（従来処理も残しておく）
     // iOSハック: currentTimeを再設定することでオーディオパイプラインを強制的にリフレッシュさせる
     // これにより、バックグラウンド復帰時に音声が出ない問題を回避できる場合がある
     try {
@@ -292,22 +306,12 @@ export function resumePlayback() {
     // ログ記録より先に play() を開始する (User Activation の有効期限を最大限活用)
     const playPromise = player.play();
 
-    debugLog(`resumePlayback called, paused: ${player.paused}, currentTime: ${player.currentTime}`);
-
-    // 状態更新
-    state.isPlaying = true;
-    updatePlayPauseButton();
-
     if (playPromise) {
         playPromise.then(() => {
             debugLog('play() succeeded');
-
-            // iOSバックグラウンド再生対策: 音量再設定ハック
+            // 音量再設定ハック
             if (player.volume !== state.volume) player.volume = state.volume;
             player.muted = false;
-
-            state.isPlaying = true;
-            updatePlayPauseButton();
         }).catch(err => {
             debugLog(`play() failed: ${err.message || err}`);
             console.warn('Playback failed:', err);
@@ -321,17 +325,27 @@ export function resumePlayback() {
 
 /**
  * 再生を停止する（Media Session からの明示的なpauseアクション用）
- * バックグラウンド再生対策を含む
+ * バックグラウンド再生対策: 擬似一時停止（ミュートで再生継続）
  */
 export function pausePlayback() {
     const player = getActivePlayer();
     debugLog(`pausePlayback called, paused: ${player.paused}`);
 
-    // iOSではバックグラウンドでpausedが正しく取得できない場合があるため、
-    // 条件チェックせずに常にpause()を試みる
-    player.pause();
+    // UI表示のみ停止状態にする
     state.isPlaying = false;
     updatePlayPauseButton();
+
+    // 重要: iOS PWAではバックグラウンドで完全にpauseすると、
+    // 再開時にオーディオセッションを取り戻せず無音になるバグがある。
+    // そのため、pause()せずにミュートにして再生を継続させる（擬似一時停止）。
+    if (!player.paused) {
+        debugLog('Entering silent pause (retaining audio session)');
+        player.muted = true;
+        // バッテリー消費を抑えるため、本来はpauseしたいが背に腹は代えられない
+        // 必要ならここで playbackRate を下げたりする工夫も考えられるが、まずはシンプルに。
+    }
+
+    // Media Sessionの状態は 'paused' に更新される（updatePlayPauseButton内で）
 }
 
 export function playNext(useCrossfade = false) {
