@@ -93,19 +93,29 @@ function setupPlayerEvents(player) {
 }
 
 export function getPreferredVocal(music) {
-    const vocals = music.vocals;
-    const priority = localStorage.getItem('vocal_priority') || 'sekai';
+    if (!music.vocals || music.vocals.length === 0) return null;
+    if (music.vocals.length === 1) return music.vocals[0];
 
-    if (priority === 'sekai') {
-        const sekai = vocals.find(v => v.type === 'sekai');
-        if (sekai) return sekai;
-    } else if (priority === 'virtual_singer') {
-        const vs = vocals.find(v => v.type === 'virtual_singer');
-        if (vs) return vs;
+    const priority = state.settings.vocalPriority || 'sekai';
+
+    if (priority === 'default') {
+        return music.vocals[0];
     }
 
-    // Default or fallback
-    return vocals[0];
+    if (priority === 'sekai') {
+        let sekaiVocal = music.vocals.find(v => v.type === 'セカイver.');
+        if (!sekaiVocal) {
+            sekaiVocal = music.vocals.find(v => v.type !== 'バーチャル・シンガーver.');
+        }
+        return sekaiVocal || music.vocals[0];
+    }
+
+    if (priority === 'virtual_singer') {
+        const vsVocal = music.vocals.find(v => v.type === 'バーチャル・シンガーver.');
+        return vsVocal || music.vocals[0];
+    }
+
+    return music.vocals[0];
 }
 
 /**
