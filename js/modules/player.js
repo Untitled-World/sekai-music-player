@@ -271,7 +271,7 @@ export function togglePlayPause() {
 
 /**
  * 再生を再開する（Media Session からの明示的なplayアクション用）
- * バックグラウンド再生対策: 擬似停止からの復帰
+ * バックグラウンド再生対策: 強制リロードによるセッション復帰
  */
 export function resumePlayback() {
     const player = getActivePlayer();
@@ -281,42 +281,29 @@ export function resumePlayback() {
     state.isPlaying = true;
     updatePlayPauseButton();
 
-    // 擬似停止（ミュート再生中）からの復帰の場合
-    if (!player.paused && player.muted) {
-        debugLog('Resuming from silent pause');
-        player.muted = false;
-        if (player.volume !== state.volume) player.volume = state.volume;
-        return;
+    const resumeTime = player.currentTime;
+
+    // iOSバックグラウンド再生の無音バグ対策: 
+    // 単純なplay()ではオーディオセッションが戻らないため、load()でリセットする
+    // これによりバッファリングが走るが、確実に音を出すための最終手段
+    player.load();
+
+    // リセット後に位置を戻す
+    if (resumeTime > CONFIG.INTRO_SKIP_SECONDS) {
+        player.currentTime = resumeTime;
+    } else {
+        player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
     }
 
-    // 本当に停止している場合の復帰（従来処理も残しておく）
-    // iOSハック: currentTimeを再設定することでオーディオパイプラインを強制的にリフレッシュさせる
-    // これにより、バックグラウンド復帰時に音声が出ない問題を回避できる場合がある
-    try {
-        const current = player.currentTime;
-        if (current < CONFIG.INTRO_SKIP_SECONDS) {
-            player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
-        } else {
-            player.currentTime = current;
-        }
-    } catch (e) {
-        // 無視
-    }
-
-    // ログ記録より先に play() を開始する (User Activation の有効期限を最大限活用)
     const playPromise = player.play();
 
     if (playPromise) {
         playPromise.then(() => {
-            debugLog('play() succeeded');
-            // 音量再設定ハック
-            if (player.volume !== state.volume) player.volume = state.volume;
+            debugLog('play() succeeded (reload)');
             player.muted = false;
         }).catch(err => {
             debugLog(`play() failed: ${err.message || err}`);
             console.warn('Playback failed:', err);
-
-            // 失敗時は状態を戻す
             state.isPlaying = false;
             updatePlayPauseButton();
         });
@@ -325,27 +312,14 @@ export function resumePlayback() {
 
 /**
  * 再生を停止する（Media Session からの明示的なpauseアクション用）
- * バックグラウンド再生対策: 擬似一時停止（ミュートで再生継続）
  */
 export function pausePlayback() {
     const player = getActivePlayer();
     debugLog(`pausePlayback called, paused: ${player.paused}`);
 
-    // UI表示のみ停止状態にする
+    player.pause();
     state.isPlaying = false;
     updatePlayPauseButton();
-
-    // 重要: iOS PWAではバックグラウンドで完全にpauseすると、
-    // 再開時にオーディオセッションを取り戻せず無音になるバグがある。
-    // そのため、pause()せずにミュートにして再生を継続させる（擬似一時停止）。
-    if (!player.paused) {
-        debugLog('Entering silent pause (retaining audio session)');
-        player.muted = true;
-        // バッテリー消費を抑えるため、本来はpauseしたいが背に腹は代えられない
-        // 必要ならここで playbackRate を下げたりする工夫も考えられるが、まずはシンプルに。
-    }
-
-    // Media Sessionの状態は 'paused' に更新される（updatePlayPauseButton内で）
 }
 
 export function playNext(useCrossfade = false) {
