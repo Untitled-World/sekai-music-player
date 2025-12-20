@@ -15,6 +15,39 @@ import { preloadTracks } from './cache.js';
 // Circular dependency: UI updates need to be imported
 import { updateNowPlayingUI, updatePlayingCard, updateDynamicBackground, updatePlayPauseButton, updateProgress, updateVolumeIcon, setLoadingState } from './ui.js';
 
+// デバッグ用: LocalStorageにログを保存（リモートデバッグなしで確認可能）
+function debugLog(message) {
+    const timestamp = new Date().toISOString();
+    const entry = `[${timestamp}] ${message}`;
+    console.log(entry);
+
+    try {
+        const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+        logs.push(entry);
+        // 最新50件のみ保持
+        if (logs.length > 50) logs.shift();
+        localStorage.setItem('debug_logs', JSON.stringify(logs));
+    } catch (e) {
+        // LocalStorage エラーは無視
+    }
+}
+
+// デバッグログを取得（コンソールから呼び出し可能）
+window.getDebugLogs = () => {
+    try {
+        const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+        return logs.join('\n');
+    } catch (e) {
+        return 'No logs';
+    }
+};
+
+// デバッグログをクリア
+window.clearDebugLogs = () => {
+    localStorage.removeItem('debug_logs');
+    console.log('Debug logs cleared');
+};
+
 export function getActivePlayer() {
     return state.activePlayerId === 'primary' ? elements.audioPlayer : elements.audioPlayerAlt;
 }
@@ -231,23 +264,27 @@ export function togglePlayPause() {
  */
 export function resumePlayback() {
     const player = getActivePlayer();
-    if (player.paused) {
-        if (player.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
-            player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
-        }
-        // バックグラウンド再生時の確実な再生開始のため、stateを先に更新
+    debugLog(`resumePlayback called, paused: ${player.paused}, currentTime: ${player.currentTime}`);
+
+    // iOSではバックグラウンドでpausedが正しく取得できない場合があるため、
+    // 条件チェックせずに常にplay()を試みる
+    if (player.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
+        player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+    }
+
+    // 状態を先に更新
+    state.isPlaying = true;
+    updatePlayPauseButton();
+
+    player.play().then(() => {
+        debugLog('play() succeeded');
         state.isPlaying = true;
         updatePlayPauseButton();
-        player.play().then(() => {
-            // 再生成功時、状態は play イベントでも更新されるが念のため確保
-            state.isPlaying = true;
-            updatePlayPauseButton();
-        }).catch(err => {
-            console.warn('Playback failed:', err);
-            state.isPlaying = false;
-            updatePlayPauseButton();
-        });
-    }
+    }).catch(err => {
+        debugLog(`play() failed: ${err.message || err}`);
+        state.isPlaying = false;
+        updatePlayPauseButton();
+    });
 }
 
 /**
@@ -255,11 +292,13 @@ export function resumePlayback() {
  */
 export function pausePlayback() {
     const player = getActivePlayer();
-    if (!player.paused) {
-        player.pause();
-        state.isPlaying = false;
-        updatePlayPauseButton();
-    }
+    debugLog(`pausePlayback called, paused: ${player.paused}`);
+
+    // iOSではバックグラウンドでpausedが正しく取得できない場合があるため、
+    // 条件チェックせずに常にpause()を試みる
+    player.pause();
+    state.isPlaying = false;
+    updatePlayPauseButton();
 }
 
 export function playNext(useCrossfade = false) {
@@ -417,8 +456,14 @@ export function updateMediaSession(music, vocal) {
             ]
         });
 
-        navigator.mediaSession.setActionHandler('play', () => resumePlayback());
-        navigator.mediaSession.setActionHandler('pause', () => pausePlayback());
+        navigator.mediaSession.setActionHandler('play', () => {
+            debugLog('MediaSession play action triggered');
+            resumePlayback();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+            debugLog('MediaSession pause action triggered');
+            pausePlayback();
+        });
         navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
         navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
         navigator.mediaSession.setActionHandler('seekto', (details) => {
