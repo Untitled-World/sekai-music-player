@@ -52,51 +52,118 @@ export function getActivePlayer() {
     return state.activePlayerId === 'primary' ? elements.audioPlayer : elements.audioPlayerAlt;
 }
 
-export function getInactivePlayer() {
-    return state.activePlayerId === 'primary' ? elements.audioPlayerAlt : elements.audioPlayer;
-}
-
 export function switchActivePlayer() {
     state.activePlayerId = state.activePlayerId === 'primary' ? 'secondary' : 'primary';
+    return getActivePlayer();
 }
 
-export function getPreferredVocal(music) {
-    if (!music.vocals || music.vocals.length === 0) return null;
-    if (music.vocals.length === 1) return music.vocals[0];
+/**
+ * プレイヤーの初期化
+ */
+export function initPlayer() {
+    // 最初のプレイヤーをアクティブに
+    state.activePlayerId = 'primary';
 
-    const priority = state.settings.vocalPriority;
+    // イベントリスナーの設定
+    setupPlayerEvents(elements.audioPlayer);
+    setupPlayerEvents(elements.audioPlayerAlt);
 
-    if (priority === 'default') {
-        return music.vocals[0];
-    }
+    // 定期的な更新タイマー
+    setupProgressTimer();
+}
+
+function setupPlayerEvents(player) {
+    player.addEventListener('timeupdate', () => {
+        // UI更新はタイマーで行うため、ここではstateのみ更新
+        // ただし、再生終了判定などはここで行う
+    });
+
+    player.addEventListener('ended', () => {
+        debugLog('Audio ended event');
+        if (state.isLoop && !state.isRepeat) {
+            // プレイリストループの場合
+            playNext();
+        } else if (state.isRepeat) {
+            // 1曲リピートの場合
+            player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+            player.play();
+        } else {
+            // ループなしの場合、次の曲があれば再生
+            if (state.currentIndex < state.playlist.length - 1) {
+                playNext();
+            } else {
+                // プレイリスト終了
+                state.isPlaying = false;
+                updatePlayPauseButton();
+            }
+        }
+    });
+
+    player.addEventListener('error', (e) => {
+        console.error('Audio error:', e);
+        debugLog(`Audio error: ${e.message || 'unknown'}`);
+        state.isLoading = false;
+        setLoadingState(false);
+    });
+
+    player.addEventListener('waiting', () => {
+        state.isLoading = true;
+        setLoadingState(true);
+    });
+
+    player.addEventListener('canplay', () => {
+        state.isLoading = false;
+        setLoadingState(false);
+    });
+
+    player.addEventListener('play', () => {
+        state.isPlaying = true;
+        updatePlayPauseButton();
+    });
+
+    player.addEventListener('pause', () => {
+        state.isPlaying = false;
+        updatePlayPauseButton();
+    });
+}
+
+function getPreferredVocal(music) {
+    const vocals = music.vocals;
+    const priority = localStorage.getItem('vocal_priority') || 'sekai';
 
     if (priority === 'sekai') {
-        let sekaiVocal = music.vocals.find(v => v.type === 'セカイver.');
-        if (!sekaiVocal) {
-            sekaiVocal = music.vocals.find(v => v.type !== 'バーチャル・シンガーver.');
-        }
-        return sekaiVocal || music.vocals[0];
+        const sekai = vocals.find(v => v.type === 'sekai');
+        if (sekai) return sekai;
+    } else if (priority === 'virtual_singer') {
+        const vs = vocals.find(v => v.type === 'virtual_singer');
+        if (vs) return vs;
     }
 
-    if (priority === 'virtual_singer') {
-        const vsVocal = music.vocals.find(v => v.type === 'バーチャル・シンガーver.');
-        return vsVocal || music.vocals[0];
-    }
-
-    return music.vocals[0];
+    // Default or fallback
+    return vocals[0];
 }
 
+/**
+ * 楽曲を再生する
+ * @param {Object} music 楽曲データ
+ * @param {Object} vocal ボーカルデータ
+ * @param {boolean} useCrossfade クロスフェードを使用するか
+ */
 export async function playMusic(music, vocal, useCrossfade = false) {
-    if (!music || !vocal) return;
-
-    // 前の曲情報を保存（クロスフェード用）
+    // 既存のプレイヤー処理
     const previousPlayer = getActivePlayer();
 
-    // クロスフェード条件チェック
-    const doCrossfade = useCrossfade && state.settings.crossfade && state.isPlaying && !state.isCrossfading;
+    // クロスフェード設定の確認（ユーザー設定かつ引数がtrue）
+    const userCrossfade = document.getElementById('crossfadeToggle')?.checked === false; // OFF=checkedなので反転
+    const doCrossfade = useCrossfade && userCrossfade;
 
     if (doCrossfade) {
-        state.isCrossfading = true;
+        // クロスフェード処理
+        // 現在のプレイヤーをフェードアウト
+        if (!previousPlayer.paused) {
+            fadeOut(previousPlayer);
+        }
+        // プレイヤーを切り替え
         switchActivePlayer();
     } else {
         // クロスフェードでない場合は、前のプレイヤーを即座に停止
@@ -143,116 +210,139 @@ export async function playMusic(music, vocal, useCrossfade = false) {
                 // メディアフラグメントを付与してバッファリングを最適化
                 currentPlayer.src = `${audioUrl}#t=${targetTime}`;
                 currentPlayer.load();
-            }
 
-            // メタデータロード後の処理
-            const onMetadata = () => {
-                if (currentPlayer.currentTime < targetTime - 0.5) {
-                    currentPlayer.currentTime = targetTime;
-                }
-
-                currentPlayer.play().then(() => {
-                    // 再生開始。もしシークがまだならここでも試みる
-                    if (currentPlayer.currentTime < targetTime - 0.5) {
+                // load()直後はメタデータ読み込みを待つ
+                const onMetadata = () => {
+                    currentPlayer.removeEventListener('loadedmetadata', onMetadata);
+                    // シーク位置の微調整（念のため）
+                    if (currentPlayer.currentTime < targetTime) {
                         currentPlayer.currentTime = targetTime;
                     }
+                    currentPlayer.play().then(() => {
+                        debugLog('Track play succeeded');
+                        resolve();
+                    }).catch(e => {
+                        console.error("Play error:", e);
+                        debugLog(`Track play error: ${e.message}`);
+                        resolve(); // エラーでも次へ進む
+                    });
+                };
+                currentPlayer.addEventListener('loadedmetadata', onMetadata);
+            } else {
+                // 同じソースの場合はシークして再生
+                currentPlayer.currentTime = targetTime;
+                currentPlayer.play().then(() => {
+                    debugLog('Track replay succeeded');
                     resolve();
-                }).catch(err => {
-                    console.warn('Playback failed:', err);
-                    state.isPlaying = false;
-                    updatePlayPauseButton();
+                }).catch(e => {
+                    console.error("Replay error:", e);
+                    debugLog(`Track replay error: ${e.message}`);
                     resolve();
                 });
-            };
-
-            if (currentPlayer.readyState >= 1) {
-                onMetadata();
-            } else {
-                currentPlayer.addEventListener('loadedmetadata', onMetadata, { once: true });
             }
-
-            currentPlayer.volume = doCrossfade ? 0 : state.volume;
         });
     };
 
+    // 再生実行
     await playNewTrack();
 
-    // 再生開始記録
-    recordPlay(music.id);
-
+    // クロスフェードイン
     if (doCrossfade) {
-        performCrossfade(previousPlayer, currentPlayer);
+        fadeIn(currentPlayer);
     } else {
-        // 重要: プレイヤーが切り替わっていない（＝同じ）場合はリセットしてはいけない
-        // これが「再生開始直後に冒頭（無音）に戻る」原因だった
-        if (previousPlayer !== currentPlayer) {
-            previousPlayer.pause();
-            previousPlayer.currentTime = 0;
-        }
+        currentPlayer.volume = state.volume;
     }
+
+    setLoadingState(false);
+
+    // 再生履歴に記録
+    recordPlay(music.id);
+}
+
+function fadeOut(player) {
+    const fadeDuration = parseFloat(document.getElementById('crossfadeSlider')?.value || 3) * 1000;
+    const steps = 20;
+    const interval = fadeDuration / steps;
+    const initialVolume = player.volume;
+    let step = 0;
+
+    const fadeTimer = setInterval(() => {
+        step++;
+        const ratio = 1 - (step / steps);
+        player.volume = initialVolume * ratio;
+
+        if (step >= steps) {
+            clearInterval(fadeTimer);
+            player.pause();
+            player.volume = state.volume; // 次回のために戻す
+        }
+    }, interval);
+}
+
+function fadeIn(player) {
+    const fadeDuration = parseFloat(document.getElementById('crossfadeSlider')?.value || 3) * 1000;
+    const steps = 20;
+    const interval = fadeDuration / steps;
+    const targetVolume = state.volume;
+
+    player.volume = 0;
+    let step = 0;
+
+    const fadeTimer = setInterval(() => {
+        step++;
+        const ratio = step / steps;
+        player.volume = targetVolume * ratio;
+
+        if (step >= steps) {
+            clearInterval(fadeTimer);
+            player.volume = targetVolume;
+        }
+    }, interval);
 }
 
 function triggerPreload() {
-    if (!state.playlist || state.playlist.length === 0) return;
+    // 次の3曲をプリロード
+    const preloadCount = 3;
+    const tracksToPreload = [];
 
-    const nextUrls = [];
-    const preloadCount = 10;
-
-    // 現在の曲(i=0)も含めて10曲分をプリロード対象にする
-    for (let i = 0; i < preloadCount; i++) {
-        const nextIdx = (state.currentIndex + i) % state.playlist.length;
-
-        // 2回目以降で自分に戻ってきたら終了
-        if (i > 0 && nextIdx === state.currentIndex) break;
-
-        const nextMusic = state.playlist[nextIdx];
-        if (nextMusic) {
-            const vocal = getPreferredVocal(nextMusic);
-            if (vocal) {
-                nextUrls.push(getAudioUrl(vocal.assetbundleName));
-            }
+    for (let i = 1; i <= preloadCount; i++) {
+        const idx = (state.currentIndex + i) % state.playlist.length;
+        if (state.playlist[idx]) {
+            tracksToPreload.push(state.playlist[idx]);
         }
     }
 
-    if (nextUrls.length > 0) {
-        console.log(`[Player] Triggering preload for ${nextUrls.length} tracks (including current)`);
-        preloadTracks(nextUrls);
-    }
+    preloadTracks(tracksToPreload);
 }
 
-function performCrossfade(fadeOutPlayer, fadeInPlayer) {
-    const duration = state.settings.crossfadeDuration * 1000;
-    const steps = 20;
-    const intervalTime = duration / steps;
-    const volumeStep = state.volume / steps;
+function setupProgressTimer() {
+    // requestAnimationFrame だとバックグラウンドで停止するため setInterval を使用
+    // iOS ではバックグラウンドでの setInterval も制限される場合があるが、
+    // Media Session API と組み合わせることで動作を維持できる可能性がある
+    const intervalTime = 200; // 更新頻度
 
-    let currentStep = 0;
+    setInterval(() => {
+        if (state.isPlaying) {
+            const player = getActivePlayer();
+            if (!player.paused) {
+                // UI更新
+                const currentTime = player.currentTime;
+                const duration = player.duration;
 
-    const fadeInterval = setInterval(() => {
-        currentStep++;
+                // Intro Skip の考慮
+                const effectiveCurrentTime = Math.max(0, currentTime - CONFIG.INTRO_SKIP_SECONDS);
+                const effectiveDuration = Math.max(0, duration - CONFIG.INTRO_SKIP_SECONDS);
 
-        // Fade Out
-        const newOutVol = Math.max(0, state.volume - (volumeStep * currentStep));
-        if (!fadeOutPlayer.paused) fadeOutPlayer.volume = newOutVol;
-
-        // Fade In
-        const newInVol = Math.min(state.volume, volumeStep * currentStep);
-        if (!fadeInPlayer.paused) fadeInPlayer.volume = newInVol;
-
-        if (currentStep >= steps) {
-            clearInterval(fadeInterval);
-            fadeOutPlayer.pause();
-            fadeOutPlayer.currentTime = 0;
-            fadeOutPlayer.volume = state.volume;
-            fadeInPlayer.volume = state.volume;
-            state.isCrossfading = false;
+                if (effectiveDuration > 0) {
+                    const percent = (effectiveCurrentTime / effectiveDuration) * 100;
+                    renderProgress(percent, effectiveCurrentTime);
+                }
+            }
         }
     }, intervalTime);
 }
 
-/**
- * UI操作用（ユーザーのタップイベントから直接呼ばれることを想定）
- */
+// UI操作用（ユーザーのタップイベントから直接呼ばれることを想定）
 export function togglePlayPause() {
     const player = getActivePlayer();
     if (player.paused) {
@@ -271,26 +361,26 @@ export function togglePlayPause() {
 
 /**
  * 再生を再開する（Media Session からの明示的なplayアクション用）
- * バックグラウンド再生対策: 強制リロードによるセッション復帰
+ * バックグラウンド再生対策: src再設定による完全リロード
  */
 export function resumePlayback() {
     const player = getActivePlayer();
     debugLog(`resumePlayback called, paused: ${player.paused}`);
 
-    // UI表示更新
     state.isPlaying = true;
     updatePlayPauseButton();
 
-    const resumeTime = player.currentTime;
+    const currentSrc = player.src;
+    const currentTime = player.currentTime;
 
-    // iOSバックグラウンド再生の無音バグ対策: 
-    // 単純なplay()ではオーディオセッションが戻らないため、load()でリセットする
-    // これによりバッファリングが走るが、確実に音を出すための最終手段
-    player.load();
+    // 完全なリロードを行うため、srcを一度空にしてから再設定
+    // これによりオーディオセッションが確実にリフレッシュされる
+    player.src = '';
+    player.src = currentSrc;
 
-    // リセット後に位置を戻す
-    if (resumeTime > CONFIG.INTRO_SKIP_SECONDS) {
-        player.currentTime = resumeTime;
+    // ロード完了を待たずに時間をセットし再生（iOSではこれでいける場合が多い）
+    if (currentTime > CONFIG.INTRO_SKIP_SECONDS) {
+        player.currentTime = currentTime;
     } else {
         player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
     }
@@ -299,11 +389,13 @@ export function resumePlayback() {
 
     if (playPromise) {
         playPromise.then(() => {
-            debugLog('play() succeeded (reload)');
+            debugLog('play() succeeded (full reload)');
             player.muted = false;
         }).catch(err => {
             debugLog(`play() failed: ${err.message || err}`);
             console.warn('Playback failed:', err);
+
+            // 失敗時は状態を戻す
             state.isPlaying = false;
             updatePlayPauseButton();
         });
@@ -317,6 +409,7 @@ export function pausePlayback() {
     const player = getActivePlayer();
     debugLog(`pausePlayback called, paused: ${player.paused}`);
 
+    // シンプルに停止
     player.pause();
     state.isPlaying = false;
     updatePlayPauseButton();
@@ -330,6 +423,11 @@ export function playNext(useCrossfade = false) {
         nextIndex = Math.floor(Math.random() * state.playlist.length);
     } else {
         nextIndex = (state.currentIndex + 1) % state.playlist.length;
+        // ループOFFで最後の曲なら停止
+        if (!state.isLoop && nextIndex === 0 && state.currentIndex === state.playlist.length - 1) {
+            pausePlayback();
+            return;
+        }
     }
 
     const nextMusic = state.playlist[nextIndex];
@@ -477,11 +575,8 @@ export function updateMediaSession(music, vocal) {
             ]
         });
 
-        // iOS Safari PWAでのバックグラウンド再生不具合（無音、操作不能）を回避するため、
-        // カスタムアクションハンドラーを削除し、ブラウザ（OS）標準のメディア制御に委ねるアプローチに変更。
-        // これにより、User Activation制約などの問題を回避し、基本的な再生/停止の安定性を確保する。
-
-        /* 
+        // カスタムハンドラー設定
+        // iOS Safari PWAでのバックグラウンド再生対策（src再設定ロジックと連携）
         navigator.mediaSession.setActionHandler('play', () => {
             debugLog('MediaSession play action triggered');
             resumePlayback();
@@ -498,13 +593,5 @@ export function updateMediaSession(music, vocal) {
                 player.currentTime = Math.max(CONFIG.INTRO_SKIP_SECONDS, details.seekTime);
             }
         });
-        */
-
-        // ハンドラーを解除（念のため明示的にnullを設定してクリア）
-        navigator.mediaSession.setActionHandler('play', null);
-        navigator.mediaSession.setActionHandler('pause', null);
-        navigator.mediaSession.setActionHandler('previoustrack', null);
-        navigator.mediaSession.setActionHandler('nexttrack', null);
-        navigator.mediaSession.setActionHandler('seekto', null);
     }
 }
