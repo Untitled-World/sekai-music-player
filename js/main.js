@@ -391,31 +391,6 @@ function initEventListeners() {
     // 初回ステータス更新
     updateCacheStatus();
 
-    // デバッグログUI
-    const refreshLogBtn = document.getElementById('refreshLogBtn');
-    const clearLogBtn = document.getElementById('clearLogBtn');
-    const debugLogArea = document.getElementById('debugLogArea');
-
-    if (refreshLogBtn && debugLogArea) {
-        refreshLogBtn.addEventListener('click', () => {
-            if (window.getDebugLogs) {
-                debugLogArea.value = window.getDebugLogs();
-            }
-        });
-        // 設定モーダルが開いたときにも自動更新されるようにしたいが、
-        // settingsBtnのイベントにフックするのはここではなく settingsBtn 側がよい。
-        // とりあえず今回は手動更新で十分。
-    }
-
-    if (clearLogBtn) {
-        clearLogBtn.addEventListener('click', () => {
-            if (window.clearDebugLogs) {
-                window.clearDebugLogs();
-                if (debugLogArea) debugLogArea.value = '';
-            }
-        });
-    }
-
     // Player controls
     if (elements.playPauseBtn) elements.playPauseBtn.addEventListener('click', togglePlayPause);
     if (elements.prevBtn) elements.prevBtn.addEventListener('click', playPrev);

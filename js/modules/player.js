@@ -15,39 +15,6 @@ import { preloadTracks } from './cache.js';
 // Circular dependency: UI updates need to be imported
 import { updateNowPlayingUI, updatePlayingCard, updateDynamicBackground, updatePlayPauseButton, updateProgress, updateVolumeIcon, setLoadingState } from './ui.js';
 
-// デバッグ用: LocalStorageにログを保存（リモートデバッグなしで確認可能）
-function debugLog(message) {
-    const timestamp = new Date().toISOString();
-    const entry = `[${timestamp}] ${message}`;
-    console.log(entry);
-
-    try {
-        const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
-        logs.push(entry);
-        // 最新50件のみ保持
-        if (logs.length > 50) logs.shift();
-        localStorage.setItem('debug_logs', JSON.stringify(logs));
-    } catch (e) {
-        // LocalStorage エラーは無視
-    }
-}
-
-// デバッグログを取得（コンソールから呼び出し可能）
-window.getDebugLogs = () => {
-    try {
-        const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
-        return logs.join('\n');
-    } catch (e) {
-        return 'No logs';
-    }
-};
-
-// デバッグログをクリア
-window.clearDebugLogs = () => {
-    localStorage.removeItem('debug_logs');
-    console.log('Debug logs cleared');
-};
-
 export function getActivePlayer() {
     return state.activePlayerId === 'primary' ? elements.audioPlayer : elements.audioPlayerAlt;
 }
@@ -79,7 +46,6 @@ function setupPlayerEvents(player) {
     });
 
     player.addEventListener('ended', () => {
-        debugLog('Audio ended event');
         if (state.isLoop && !state.isRepeat) {
             // プレイリストループの場合
             playNext();
@@ -101,7 +67,6 @@ function setupPlayerEvents(player) {
 
     player.addEventListener('error', (e) => {
         console.error('Audio error:', e);
-        debugLog(`Audio error: ${e.message || 'unknown'}`);
         state.isLoading = false;
         setLoadingState(false);
     });
@@ -182,7 +147,6 @@ export async function playMusic(music, vocal, useCrossfade = false) {
     elements.nowPlayingBar.classList.add('visible');
     updateDynamicBackground(music.assetbundleName);
 
-    // 重要: メディアセッションの更新をここで行う（ハンドラーは設定しない）
     updateMediaSession(music, vocal);
     applyUnitTheme(music.unit);
 
@@ -209,11 +173,9 @@ export async function playMusic(music, vocal, useCrossfade = false) {
                         currentPlayer.currentTime = targetTime;
                     }
                     currentPlayer.play().then(() => {
-                        debugLog('Track play succeeded');
                         resolve();
                     }).catch(e => {
                         console.error("Play error:", e);
-                        debugLog(`Track play error: ${e.message}`);
                         resolve();
                     });
                 };
@@ -221,11 +183,9 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             } else {
                 currentPlayer.currentTime = targetTime;
                 currentPlayer.play().then(() => {
-                    debugLog('Track replay succeeded');
                     resolve();
                 }).catch(e => {
                     console.error("Replay error:", e);
-                    debugLog(`Track replay error: ${e.message}`);
                     resolve();
                 });
             }
@@ -336,7 +296,6 @@ export function togglePlayPause() {
 
 /**
  * 再生を再開する（UI / 他モジュール連携用）
- * 単純なラッパーに戻す
  */
 export function resumePlayback() {
     togglePlayPause();
@@ -344,7 +303,6 @@ export function resumePlayback() {
 
 /**
  * 再生を停止する（UI / 他モジュール連携用）
- * 単純なラッパーに戻す
  */
 export function pausePlayback() {
     togglePlayPause();
@@ -510,11 +468,5 @@ export function updateMediaSession(music, vocal) {
             ]
         });
 
-        // カスタムハンドラーを全て削除し、iOS Safari標準のメディアコントロールに委ねる
-        navigator.mediaSession.setActionHandler('play', null);
-        navigator.mediaSession.setActionHandler('pause', null);
-        navigator.mediaSession.setActionHandler('previoustrack', null);
-        navigator.mediaSession.setActionHandler('nexttrack', null);
-        navigator.mediaSession.setActionHandler('seekto', null);
     }
 }
