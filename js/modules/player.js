@@ -278,6 +278,12 @@ export function resumePlayback() {
 
     player.play().then(() => {
         debugLog('play() succeeded');
+
+        // iOSバックグラウンド再生対策: 音声が出ない問題への対処
+        // 再生が成功しても音声が出ない場合があるため、ボリューム周りを再設定してオーディオ出力を刺激する
+        if (player.volume !== state.volume) player.volume = state.volume;
+        player.muted = false;
+
         state.isPlaying = true;
         updatePlayPauseButton();
     }).catch(err => {
