@@ -54,8 +54,13 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // 音声ファイルはスルー
+    // 音声ファイルのキャッシュ対応 (Cache-First)
     if (url.hostname === 'storage.sekai.best' && url.pathname.endsWith('.mp3')) {
+        e.respondWith(
+            caches.match(e.request).then((cached) => {
+                return cached || fetch(e.request);
+            })
+        );
         return;
     }
 

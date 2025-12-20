@@ -9,6 +9,7 @@ import { updateFavoriteBtnState } from './favorites.js';
 import { openVocalModal } from './modals.js';
 import { recordPlay } from './stats.js';
 import { applyUnitTheme } from './theme.js';
+import { preloadTracks } from './cache.js';
 
 // Circular dependency: UI updates need to be imported
 import { updateNowPlayingUI, updatePlayingCard, updateDynamicBackground, updatePlayPauseButton, updateProgress, updateVolumeIcon, setLoadingState } from './ui.js';
@@ -151,6 +152,34 @@ export async function playMusic(music, vocal, useCrossfade = false) {
             previousPlayer.pause();
             previousPlayer.currentTime = 0;
         }
+    }
+
+    // 次の数曲をバックグラウンドでプリロードしておく
+    triggerPreload();
+}
+
+function triggerPreload() {
+    if (!state.playlist || state.playlist.length === 0) return;
+
+    const nextUrls = [];
+    const preloadCount = 10;
+
+    for (let i = 1; i <= preloadCount; i++) {
+        const nextIdx = (state.currentIndex + i) % state.playlist.length;
+        // ループして自分に戻ってきたら終了
+        if (nextIdx === state.currentIndex) break;
+
+        const nextMusic = state.playlist[nextIdx];
+        if (nextMusic) {
+            const vocal = getPreferredVocal(nextMusic);
+            if (vocal) {
+                nextUrls.push(getAudioUrl(vocal.assetbundleName));
+            }
+        }
+    }
+
+    if (nextUrls.length > 0) {
+        preloadTracks(nextUrls);
     }
 }
 

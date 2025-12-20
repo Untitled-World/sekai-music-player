@@ -145,7 +145,10 @@
 
 .control-btn:hover {
     background: var(--bg-glass);
-    color: var(--accent-primary);
+}
+
+.control-btn.active:hover {
+    background: rgba(108, 92, 231, 0.2);
 }
 
 .control-btn svg {
@@ -173,6 +176,25 @@
 
 .control-btn.active {
     color: var(--accent-primary);
+    background: rgba(108, 92, 231, 0.1);
+    position: relative;
+}
+
+.control-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    background: var(--accent-primary);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent-primary);
+}
+
+[data-theme="light"] .control-btn.active {
+    background: rgba(108, 92, 231, 0.05);
 }
 
 .progress-container {
@@ -285,18 +307,15 @@
         padding-bottom: env(safe-area-inset-bottom);
     }
 
-    /* Player Bar Layout - Flexbox with Flattened Children */
+    /* 元の回り込みレイアウトを完全に復元 */
     .now-playing-content {
         position: relative;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         padding: 30px 16px 50px 16px;
-        /* 下部余白を大きく確保（プログレスバー操作用） */
         gap: 8px;
     }
-
-
 
     .track-info,
     .player-controls,
@@ -304,7 +323,7 @@
         display: contents;
     }
 
-    /* Control Buttons - Absolute Centering */
+    /* 再生コントロール群を完全中央へ（Playボタンを50%に固定） */
     .control-buttons {
         position: absolute;
         left: 50%;
@@ -312,6 +331,9 @@
         top: 54px;
         z-index: 5;
         width: auto;
+        display: flex;
+        align-items: center;
+        gap: 16px;
         pointer-events: none;
     }
 
@@ -319,31 +341,22 @@
         pointer-events: auto;
     }
 
+    /* お気に入りボタンをバーから完全に消して中央配置を優先 */
     #favBtn {
-        position: absolute;
-        left: 100%;
-        margin-left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        right: auto;
-        /* PC用スタイルの打ち消し */
-        margin-right: 0;
-        /* PC用スタイルの打ち消し */
+        display: none !important;
     }
 
     .now-playing-bar .track-jacket {
         order: 1;
         width: 48px;
         height: 48px;
-        border-radius: 8px;
+        border-radius: var(--radius-sm);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         border: 2px solid var(--accent-primary);
-        overflow: hidden;
-        margin-right: 8px;
-        position: static;
-        z-index: auto;
+        flex-shrink: 0;
     }
 
+    /* 歌詞ボタンを左側に寄せ、中央コントロールとの衝突を避ける */
     #lyricsBtn {
         order: 2;
         margin-right: auto;
@@ -372,9 +385,8 @@
     }
 
     .track-details,
-    .volume-control,
-    .card-unit {
-        display: none;
+    .volume-control {
+        display: none !important;
     }
 
     .now-playing-bar .track-info {

@@ -171,6 +171,23 @@ function initEventListeners() {
             if (e.target === elements.settingsModal) elements.settingsModal.classList.remove('visible');
         });
     }
+
+    // ショートカットモーダル
+    if (elements.shortcutsBtn) {
+        elements.shortcutsBtn.addEventListener('click', () => {
+            elements.shortcutsModal.classList.add('visible');
+        });
+    }
+    if (elements.shortcutsClose) {
+        elements.shortcutsClose.addEventListener('click', () => {
+            elements.shortcutsModal.classList.remove('visible');
+        });
+    }
+    if (elements.shortcutsModal) {
+        elements.shortcutsModal.addEventListener('click', (e) => {
+            if (e.target === elements.shortcutsModal) elements.shortcutsModal.classList.remove('visible');
+        });
+    }
     if (elements.vocalPrioritySelect) {
         elements.vocalPrioritySelect.addEventListener('change', (e) => {
             state.settings.vocalPriority = e.target.value;
@@ -576,13 +593,16 @@ function initEventListeners() {
     if (elements.playerJacket) {
         elements.playerJacket.addEventListener('click', () => {
             if (!state.currentTrack) return;
+
+            // 常に楽曲カードへスクロール
+            const playingCard = document.querySelector(`.music-card[data-id="${state.currentTrack.id}"]`);
+            if (playingCard) {
+                playingCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // ボーカルが複数ある場合はモーダルも表示
             if (state.currentTrack.vocals?.length > 1) {
                 openVocalModal(state.currentTrack);
-            } else {
-                const playingCard = document.querySelector(`.music-card[data-id="${state.currentTrack.id}"]`);
-                if (playingCard) {
-                    playingCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
             }
         });
     }

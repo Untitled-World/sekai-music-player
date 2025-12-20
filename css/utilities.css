@@ -109,7 +109,7 @@
 /* トップに戻るボタン (Scroll to Top) */
 .scroll-to-top {
     position: fixed;
-    bottom: calc(var(--player-height) + 20px);
+    bottom: 20px;
     right: 20px;
     width: 48px;
     height: 48px;
@@ -126,6 +126,18 @@
     transition: var(--transition-normal);
     z-index: 150;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* プレイヤー表示時は上へシフト */
+body.player-active .scroll-to-top {
+    bottom: calc(var(--player-height) + 20px);
+}
+
+@media (max-width: 768px) {
+    body.player-active .scroll-to-top {
+        bottom: calc(160px + 20px);
+        /* 以前の140pxから微調整 */
+    }
 }
 
 .scroll-to-top.visible {

@@ -11,6 +11,7 @@ const CACHE_NAME = 'sekai-app-cache-v17';
 // キャッシュ状態
 let isCaching = false;
 let cacheProgress = { current: 0, total: 0, cached: 0, skipped: 0, type: '' };
+const activePreloads = new Set(); // 重複ロード防止用
 
 export function getCacheProgress() {
     return { ...cacheProgress };
@@ -131,6 +132,33 @@ export async function cacheAllAudio(onProgress) {
 
     isCaching = false;
     return { total: uniqueUrls.length, cached: cacheProgress.cached, skipped: cacheProgress.skipped };
+}
+
+// 特定のURL群をバックグラウンドでプリロード
+export async function preloadTracks(urls) {
+    if (!('caches' in window) || !urls || urls.length === 0) return;
+
+    try {
+        const cache = await caches.open(CACHE_NAME);
+        for (const url of urls) {
+            // すでにキャッシュ済み、または現在ロード中の場合はスキップ
+            if (activePreloads.has(url)) continue;
+            if (await isUrlCached(cache, url)) continue;
+
+            activePreloads.add(url);
+            fetch(url).then(async (response) => {
+                if (response.ok) {
+                    await cache.put(url, response);
+                }
+            }).catch(() => {
+                // サイレントに無視
+            }).finally(() => {
+                activePreloads.delete(url);
+            });
+        }
+    } catch (err) {
+        console.warn('Preload failed:', err);
+    }
 }
 
 // すべてをキャッシュ

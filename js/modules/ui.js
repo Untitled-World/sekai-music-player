@@ -204,6 +204,7 @@ export function updateNowPlayingUI() {
     elements.playerTitle.textContent = state.currentTrack.title;
     elements.playerArtist.textContent = state.currentVocal?.vo || state.currentTrack.composer || '-';
 
+    document.body.classList.add('player-active');
     updateFavoriteBtnState(state.currentTrack.id);
 }
 
@@ -232,10 +233,12 @@ export function updatePlayPauseButton() {
         playIcon.style.display = 'none';
         pauseIcon.style.display = 'block';
         loadingIcon.style.display = 'none';
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
     } else {
         playIcon.style.display = 'block';
         pauseIcon.style.display = 'none';
         loadingIcon.style.display = 'none';
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
     }
 }
 

@@ -61,4 +61,8 @@
         padding-bottom: 150px;
         /* コンテンツがプレイヤーの後ろに隠れないようにする */
     }
+
+    #shortcutsBtn {
+        display: none !important;
+    }
 }
