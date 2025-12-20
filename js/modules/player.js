@@ -257,12 +257,12 @@ export function togglePlayPause() {
     const player = getActivePlayer();
     if (player.paused) {
         // フォアグラウンド操作時はシンプルに再生
+        // iOSのUser Activation制約を回避するため、console.log等も最小限にする
         if (player.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
             player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
         }
         player.play().catch(err => {
-            console.warn('Playback failed:', err);
-            debugLog(`UI play failed: ${err.message}`);
+            console.error('UI Playback failed:', err);
         });
     } else {
         player.pause();
