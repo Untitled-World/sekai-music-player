@@ -127,7 +127,7 @@ function setupPlayerEvents(player) {
     });
 }
 
-function getPreferredVocal(music) {
+export function getPreferredVocal(music) {
     const vocals = music.vocals;
     const priority = localStorage.getItem('vocal_priority') || 'sekai';
 
