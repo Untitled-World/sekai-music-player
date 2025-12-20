@@ -250,17 +250,28 @@ function performCrossfade(fadeOutPlayer, fadeInPlayer) {
     }, intervalTime);
 }
 
+/**
+ * UI操作用（ユーザーのタップイベントから直接呼ばれることを想定）
+ */
 export function togglePlayPause() {
     const player = getActivePlayer();
     if (player.paused) {
-        resumePlayback();
+        // フォアグラウンド操作時はシンプルに再生
+        if (player.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
+            player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+        }
+        player.play().catch(err => {
+            console.warn('Playback failed:', err);
+            debugLog(`UI play failed: ${err.message}`);
+        });
     } else {
-        pausePlayback();
+        player.pause();
     }
 }
 
 /**
  * 再生を再開する（Media Session からの明示的なplayアクション用）
+ * バックグラウンド再生対策を含む
  */
 export function resumePlayback() {
     const player = getActivePlayer();
@@ -295,6 +306,7 @@ export function resumePlayback() {
 
 /**
  * 再生を停止する（Media Session からの明示的なpauseアクション用）
+ * バックグラウンド再生対策を含む
  */
 export function pausePlayback() {
     const player = getActivePlayer();
