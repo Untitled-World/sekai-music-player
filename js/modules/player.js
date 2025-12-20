@@ -275,33 +275,48 @@ export function togglePlayPause() {
  */
 export function resumePlayback() {
     const player = getActivePlayer();
-    debugLog(`resumePlayback called, paused: ${player.paused}, currentTime: ${player.currentTime}`);
 
-    // iOSではバックグラウンドでpausedが正しく取得できない場合があるため、
-    // 条件チェックせずに常にplay()を試みる
-    if (player.currentTime < CONFIG.INTRO_SKIP_SECONDS) {
-        player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+    // iOSハック: currentTimeを再設定することでオーディオパイプラインを強制的にリフレッシュさせる
+    // これにより、バックグラウンド復帰時に音声が出ない問題を回避できる場合がある
+    try {
+        const current = player.currentTime;
+        if (current < CONFIG.INTRO_SKIP_SECONDS) {
+            player.currentTime = CONFIG.INTRO_SKIP_SECONDS;
+        } else {
+            player.currentTime = current;
+        }
+    } catch (e) {
+        // 無視
     }
 
-    // 状態を先に更新
+    // ログ記録より先に play() を開始する (User Activation の有効期限を最大限活用)
+    const playPromise = player.play();
+
+    debugLog(`resumePlayback called, paused: ${player.paused}, currentTime: ${player.currentTime}`);
+
+    // 状態更新
     state.isPlaying = true;
     updatePlayPauseButton();
 
-    player.play().then(() => {
-        debugLog('play() succeeded');
+    if (playPromise) {
+        playPromise.then(() => {
+            debugLog('play() succeeded');
 
-        // iOSバックグラウンド再生対策: 音声が出ない問題への対処
-        // 再生が成功しても音声が出ない場合があるため、ボリューム周りを再設定してオーディオ出力を刺激する
-        if (player.volume !== state.volume) player.volume = state.volume;
-        player.muted = false;
+            // iOSバックグラウンド再生対策: 音量再設定ハック
+            if (player.volume !== state.volume) player.volume = state.volume;
+            player.muted = false;
 
-        state.isPlaying = true;
-        updatePlayPauseButton();
-    }).catch(err => {
-        debugLog(`play() failed: ${err.message || err}`);
-        state.isPlaying = false;
-        updatePlayPauseButton();
-    });
+            state.isPlaying = true;
+            updatePlayPauseButton();
+        }).catch(err => {
+            debugLog(`play() failed: ${err.message || err}`);
+            console.warn('Playback failed:', err);
+
+            // 失敗時は状態を戻す
+            state.isPlaying = false;
+            updatePlayPauseButton();
+        });
+    }
 }
 
 /**

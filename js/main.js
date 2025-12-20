@@ -669,18 +669,26 @@ function initEventListeners() {
     // 復帰時に明示的にプログレスバーと再生状態を更新する
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            const player = getActivePlayer();
-            if (player && state.currentTrack) {
-                // プログレスバーを現在の再生位置に同期
-                updateProgress();
+            const syncState = () => {
+                const player = getActivePlayer();
+                if (player && state.currentTrack) {
+                    // プログレスバーを現在の再生位置に同期
+                    updateProgress();
 
-                // 再生状態を実際のプレイヤー状態に同期
-                const actuallyPlaying = !player.paused;
-                if (state.isPlaying !== actuallyPlaying) {
-                    state.isPlaying = actuallyPlaying;
-                    updatePlayPauseButton();
+                    // 再生状態を実際のプレイヤー状態に同期
+                    const actuallyPlaying = !player.paused;
+                    if (state.isPlaying !== actuallyPlaying) {
+                        state.isPlaying = actuallyPlaying;
+                        updatePlayPauseButton();
+                    }
                 }
-            }
+            };
+
+            // 即時実行
+            syncState();
+
+            // iOSでは復帰直後にcurrentTimeが最新でない場合があるため、少し遅れて再同期
+            setTimeout(syncState, 500);
         }
     });
 }
