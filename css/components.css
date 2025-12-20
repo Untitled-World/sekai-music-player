@@ -456,6 +456,8 @@
 
 .card-action-btn.delete-btn {
     background: rgba(255, 77, 77, 0.8);
+    right: 48px;
+    /* お気に入りボタンの左に配置 */
 }
 
 .card-action-btn.delete-btn:hover {

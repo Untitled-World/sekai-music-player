@@ -38,19 +38,24 @@ export function createMusicCard(music) {
     const vocalsCount = music.vocals?.length || 0;
     const isPlaying = state.currentTrack?.id === music.id;
 
+    const isFav = isFavorite(music.id);
+    const favBtn = `
+        <button class="card-action-btn fav-card-btn ${isFav ? 'active' : ''}" data-id="${music.id}" title="${isFav ? 'お気に入りから削除' : 'お気に入りに追加'}">
+            ${isFav ? '❤️' : '🤍'}
+        </button>
+    `;
+
     let actionBtn;
     if (state.playbackContext === 'playlist') {
         actionBtn = `
+            ${favBtn}
             <button class="card-action-btn delete-btn" data-id="${music.id}" title="プレイリストから削除">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
             </button>
         `;
     } else {
-        const isFav = isFavorite(music.id);
         actionBtn = `
-            <button class="card-action-btn fav-card-btn ${isFav ? 'active' : ''}" data-id="${music.id}" title="${isFav ? 'お気に入りから削除' : 'お気に入りに追加'}">
-                ${isFav ? '❤️' : '🤍'}
-            </button>
+            ${favBtn}
             <button class="card-action-btn add-btn" data-id="${music.id}" title="プレイリストに追加">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </button>
