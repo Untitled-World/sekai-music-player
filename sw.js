@@ -32,22 +32,22 @@ self.addEventListener('fetch', (e) => {
         const normalizedUrl = url.origin + url.pathname;
 
         e.respondWith(
-            caches.match(normalizedUrl, { ignoreSearch: true }).then((cached) => {
+            caches.match(normalizedUrl, { ignoreSearch: true, ignoreVary: true }).then((cached) => {
                 if (cached) return cached;
 
+                // キャッシュがない場合はネットワークから取得
                 return fetch(e.request).then((response) => {
                     if (response.status === 200 || response.status === 0) {
                         const clone = response.clone();
                         caches.open(CACHE_NAME).then(cache => {
-                            cache.put(normalizedUrl, clone).catch(err => {
-                                console.warn(`[SW] Cache.put error for ${normalizedUrl}`, err);
-                            });
+                            cache.put(normalizedUrl, clone).catch(() => { });
                         });
                     }
                     return response;
-                }).catch(err => {
-                    console.error(`[SW] Fetch failed for ${normalizedUrl}`, err);
-                    return new Response('Network error', { status: 408 });
+                }).catch(() => {
+                    // 403やネットワークエラー時の最終手段：URL直接かつno-corsでリトライ
+                    console.warn(`[SW] Retrying image with no-cors: ${normalizedUrl}`);
+                    return fetch(normalizedUrl, { mode: 'no-cors' });
                 });
             })
         );

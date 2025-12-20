@@ -14,7 +14,7 @@ import { getActivePlayer, playMusic, playNext, playPrev, togglePlayPause, toggle
 import { renderMusicGrid, filterMusic, switchToAllContext, updateStats, updateNowPlayingUI, updatePlayPauseButton, updateProgress, setLoadingState } from './modules/ui.js';
 import { openLyricsModal, closeLyricsModal, openVocalModal, closeVocalModal, closeConfirmModal, executeConfirmCallback, showAlertModal, showConfirmModal } from './modules/modals.js';
 import { loadStats, openStatsModal, closeStatsModal, renderStatsContent } from './modules/stats.js';
-import { cacheAllJackets, cacheAllAudio, clearCache, getCacheSize, isCachingInProgress } from './modules/cache.js';
+import { cacheAllJackets, cacheAllAudio, clearCache, getCacheSize, isCachingInProgress, abortCaching } from './modules/cache.js';
 
 // 設定管理 (Settings Management) - ここに残すか、専用モジュールにするか。今回はMainに置く。
 function loadSettings() {
@@ -285,6 +285,7 @@ function initEventListeners() {
     // Cache controls
     const cacheJacketsBtn = document.getElementById('cacheJacketsBtn');
     const cacheAudioBtn = document.getElementById('cacheAudioBtn');
+    const abortCacheBtn = document.getElementById('abortCacheBtn');
     const clearCacheBtn = document.getElementById('clearCacheBtn');
     const cacheProgress = document.getElementById('cacheProgress');
     const cacheProgressFill = document.getElementById('cacheProgressFill');
@@ -309,24 +310,27 @@ function initEventListeners() {
         }
     };
 
+    const setCachingUIState = (active) => {
+        if (cacheProgress) cacheProgress.style.display = active ? 'block' : 'none';
+        if (cacheJacketsBtn) cacheJacketsBtn.style.display = active ? 'none' : 'block';
+        if (cacheAudioBtn) cacheAudioBtn.style.display = active ? 'none' : 'block';
+        if (abortCacheBtn) abortCacheBtn.style.display = active ? 'block' : 'none';
+        if (clearCacheBtn) clearCacheBtn.style.display = active ? 'none' : 'block';
+    };
+
     if (cacheJacketsBtn) {
         cacheJacketsBtn.addEventListener('click', async () => {
-            if (isCachingInProgress()) {
-                showAlertModal('通知', 'キャッシュ処理が進行中です');
-                return;
-            }
-            cacheProgress.style.display = 'block';
-            cacheJacketsBtn.disabled = true;
-            cacheAudioBtn.disabled = true;
+            if (isCachingInProgress()) return;
+            setCachingUIState(true);
             try {
                 const result = await cacheAllJackets(updateCacheProgress);
-                showAlertModal('完了', `画像のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
+                if (result) {
+                    showAlertModal('完了', `画像のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
+                }
             } catch (err) {
-                showAlertModal('エラー', err.message);
+                if (err.name !== 'AbortError') showAlertModal('エラー', err.message);
             } finally {
-                cacheProgress.style.display = 'none';
-                cacheJacketsBtn.disabled = false;
-                cacheAudioBtn.disabled = false;
+                setCachingUIState(false);
                 updateCacheStatus();
             }
         });
@@ -334,41 +338,48 @@ function initEventListeners() {
 
     if (cacheAudioBtn) {
         cacheAudioBtn.addEventListener('click', async () => {
-            if (isCachingInProgress()) {
-                showAlertModal('通知', 'キャッシュ処理が進行中です');
-                return;
-            }
-            cacheProgress.style.display = 'block';
-            cacheJacketsBtn.disabled = true;
-            cacheAudioBtn.disabled = true;
+            if (isCachingInProgress()) return;
+            setCachingUIState(true);
             try {
                 const result = await cacheAllAudio(updateCacheProgress);
-                showAlertModal('完了', `音声のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
+                if (result) {
+                    showAlertModal('完了', `音声のダウンロードが完了しました\n新規: ${result.cached}件, スキップ: ${result.skipped}件`);
+                }
             } catch (err) {
-                showAlertModal('エラー', err.message);
+                if (err.name !== 'AbortError') showAlertModal('エラー', err.message);
             } finally {
-                cacheProgress.style.display = 'none';
-                cacheJacketsBtn.disabled = false;
-                cacheAudioBtn.disabled = false;
+                setCachingUIState(false);
                 updateCacheStatus();
             }
+        });
+    }
+
+    if (abortCacheBtn) {
+        abortCacheBtn.addEventListener('click', () => {
+            abortCaching();
+            setCachingUIState(false);
         });
     }
 
     if (clearCacheBtn) {
         clearCacheBtn.addEventListener('click', async () => {
             showConfirmModal('キャッシュ削除', '本当にキャッシュを削除しますか？', async () => {
-                // UIフィードバック
                 clearCacheBtn.disabled = true;
                 const originalText = clearCacheBtn.textContent;
                 clearCacheBtn.textContent = '削除中...';
 
                 try {
                     await clearCache();
+                    // 削除直後は Quota API の反映が遅れるため、まずUIを0.0MBにリセット
+                    if (cacheStatus) cacheStatus.textContent = '使用中: 0.0 MB';
+
                     showAlertModal('完了', 'キャッシュを削除しました');
-                    updateCacheStatus();
+
+                    // 少し待ってから正確なサイズを再取得
+                    setTimeout(updateCacheStatus, 300);
                 } catch (err) {
                     showAlertModal('エラー', `削除に失敗しました: ${err.message}`);
+                    updateCacheStatus();
                 } finally {
                     clearCacheBtn.disabled = false;
                     clearCacheBtn.textContent = originalText;

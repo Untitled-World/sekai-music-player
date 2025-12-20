@@ -11,6 +11,7 @@ const CACHE_NAME = 'sekai-app-cache-v18';
 
 // キャッシュ状態
 let isCaching = false;
+let abortController = null;
 let cacheProgress = { current: 0, total: 0, cached: 0, skipped: 0, type: '' };
 const activePreloads = new Set(); // 重複ロード防止用
 
@@ -20,6 +21,16 @@ export function getCacheProgress() {
 
 export function isCachingInProgress() {
     return isCaching;
+}
+
+// キャッシュ処理を中止
+export function abortCaching() {
+    if (abortController) {
+        abortController.abort();
+        abortController = null;
+        isCaching = false;
+        console.info('[Cache] Caching aborted by user');
+    }
 }
 
 // URLがキャッシュ済みかチェック
@@ -32,6 +43,28 @@ async function isUrlCached(cache, url) {
     }
 }
 
+// 並列実行用ヘルパー
+async function runWithLimit(urls, concurrency, processor) {
+    const results = [];
+    const executing = new Set();
+
+    for (const url of urls) {
+        if (!isCaching) break;
+
+        const p = Promise.resolve().then(() => processor(url));
+        results.push(p);
+        executing.add(p);
+
+        const cleanUp = () => executing.delete(p);
+        p.then(cleanUp).catch(cleanUp);
+
+        if (executing.size >= concurrency) {
+            await Promise.race(executing);
+        }
+    }
+    return Promise.all(results);
+}
+
 // すべてのジャケット画像をキャッシュ
 export async function cacheAllJackets(onProgress) {
     if (!state.musicData || state.musicData.length === 0) {
@@ -39,7 +72,11 @@ export async function cacheAllJackets(onProgress) {
     }
 
     isCaching = true;
+    abortController = new AbortController();
+    const signal = abortController.signal;
+
     if (!('caches' in window)) {
+        isCaching = false;
         throw new Error('オフラインキャッシュ機能はこの環境（HTTPSまたはlocalhost以外）では利用できません');
     }
     const cache = await caches.open(CACHE_NAME);
@@ -47,36 +84,29 @@ export async function cacheAllJackets(onProgress) {
 
     cacheProgress = { current: 0, total: jacketUrls.length, cached: 0, skipped: 0, type: 'jacket' };
 
-    for (let i = 0; i < jacketUrls.length; i++) {
-        const url = jacketUrls[i];
+    await runWithLimit(jacketUrls, 10, async (url) => {
+        if (signal.aborted) return;
 
-        // キャッシュ済みならスキップ
         if (await isUrlCached(cache, url)) {
             cacheProgress.skipped++;
         } else {
             try {
-                // Service Worker が有効な場合、fetch するだけで SW 側が自動的にキャッシュしてくれる
-                // ここで `cache.put` を重ねて呼ぶと、二重書き込みエラー（Unexpected internal error）が発生するため避ける
-                const response = await fetch(url);
+                const response = await fetch(url, { signal });
                 if (response.ok) {
                     cacheProgress.cached++;
                 }
             } catch (err) {
-                console.warn(`Failed to cache jacket: ${url}`, err);
+                if (err.name !== 'AbortError') console.warn(`Failed to cache jacket: ${url}`, err);
             }
         }
-
-        cacheProgress.current = i + 1;
+        cacheProgress.current++;
         if (onProgress) onProgress(cacheProgress);
-
-        // ブラウザへの負荷軽減：5件ごとに短い休憩を入れる
-        if (i % 5 === 0) {
-            await new Promise(r => setTimeout(r, 50));
-        }
-    }
+    });
 
     isCaching = false;
-    return { total: jacketUrls.length, cached: cacheProgress.cached, skipped: cacheProgress.skipped };
+    const aborted = signal.aborted;
+    abortController = null;
+    return aborted ? null : { total: jacketUrls.length, cached: cacheProgress.cached, skipped: cacheProgress.skipped };
 }
 
 // すべての音声ファイルをキャッシュ
@@ -86,7 +116,11 @@ export async function cacheAllAudio(onProgress) {
     }
 
     isCaching = true;
+    abortController = new AbortController();
+    const signal = abortController.signal;
+
     if (!('caches' in window)) {
+        isCaching = false;
         throw new Error('オフラインキャッシュ機能はこの環境（HTTPSまたはlocalhost以外）では利用できません');
     }
     const cache = await caches.open(CACHE_NAME);
@@ -104,40 +138,33 @@ export async function cacheAllAudio(onProgress) {
     const uniqueUrls = [...new Set(audioUrls)];
     cacheProgress = { current: 0, total: uniqueUrls.length, cached: 0, skipped: 0, type: 'audio' };
 
-    for (let i = 0; i < uniqueUrls.length; i++) {
-        const url = uniqueUrls[i];
+    await runWithLimit(uniqueUrls, 5, async (url) => {
+        if (signal.aborted) return;
 
-        // キャッシュ済み、または現在プリロード中ならスキップ
         if (activePreloads.has(url) || await isUrlCached(cache, url)) {
             cacheProgress.skipped++;
         } else {
             try {
                 activePreloads.add(url);
-                const response = await fetch(url, { mode: 'cors' });
+                const response = await fetch(url, { mode: 'cors', signal });
                 if (response.status === 200) {
                     await cache.put(url, response);
                     cacheProgress.cached++;
-                } else {
-                    console.warn(`[Cache] Skipped caching (status ${response.status}): ${url}`);
                 }
             } catch (err) {
-                console.warn(`Failed to cache audio: ${url}`, err);
+                if (err.name !== 'AbortError') console.warn(`Failed to cache audio: ${url}`, err);
             } finally {
                 activePreloads.delete(url);
             }
         }
-
-        cacheProgress.current = i + 1;
+        cacheProgress.current++;
         if (onProgress) onProgress(cacheProgress);
-
-        // ブラウザへの負荷軽減：5件ごとに短い休憩を入れる
-        if (i % 5 === 0) {
-            await new Promise(r => setTimeout(r, 50));
-        }
-    }
+    });
 
     isCaching = false;
-    return { total: uniqueUrls.length, cached: cacheProgress.cached, skipped: cacheProgress.skipped };
+    const aborted = signal.aborted;
+    abortController = null;
+    return aborted ? null : { total: uniqueUrls.length, cached: cacheProgress.cached, skipped: cacheProgress.skipped };
 }
 
 // 特定のURL群をバックグラウンドでプリロード
