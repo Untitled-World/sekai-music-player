@@ -50818,5 +50818,69 @@
         "isFullLength": false,
         "collaboration": "無し",
         "isLimitedTimeMusic": false
+    },
+    {
+        "id": 830,
+        "assetbundleName": "jacket_s_830",
+        "title": "再会",
+        "pronunciation": "さいかい",
+        "vocals": [
+            {
+                "type": "バーチャル・シンガーver.",
+                "assetbundleName": "vs_0830_01",
+                "vo": "初音 ミク"
+            },
+            {
+                "type": "セカイver.",
+                "assetbundleName": "se_0830_01",
+                "vo": "巡音 ルカ、星乃 一歌、天馬 咲希、望月 穂波、日野森 志歩"
+            }
+        ],
+        "unit": [
+            "Leo/need"
+        ],
+        "categories": [
+            "原曲MV"
+        ],
+        "time": 129,
+        "currentTime": 129.4,
+        "levels": [
+            {
+                "difficulty": "easy",
+                "playLevel": 6,
+                "totalNotes": 268
+            },
+            {
+                "difficulty": "normal",
+                "playLevel": 13,
+                "totalNotes": 371
+            },
+            {
+                "difficulty": "hard",
+                "playLevel": 17,
+                "totalNotes": 553
+            },
+            {
+                "difficulty": "expert",
+                "playLevel": 23,
+                "totalNotes": 850
+            },
+            {
+                "difficulty": "master",
+                "playLevel": 27,
+                "totalNotes": 806
+            }
+        ],
+        "lyricist": "はるまきごはん",
+        "composer": "はるまきごはん",
+        "arranger": "はるまきごはん",
+        "event": "無し",
+        "releaseAt": "2026/11/27 15:00:00",
+        "basePoint": 115,
+        "originalLink": "https://www.nicovideo.jp/watch/sm35330510?rf=nvpc&rp=watch&ra=share&rd=x",
+        "isNewlyWrittenMusic": false,
+        "isFullLength": false,
+        "collaboration": "無し",
+        "isLimitedTimeMusic": false
     }
 ]
